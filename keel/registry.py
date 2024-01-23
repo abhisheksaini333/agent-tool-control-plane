@@ -42,3 +42,32 @@ class Registry:
 
     def get(self, tenant, name, version):
         return self.store.get(tenant, "tools", f"{name}@{version}")
+
+    def activate(self, actor, name, version):
+        if "administrator" not in actor.roles:
+            raise PermissionError("Administrator role required")
+        with self.store.transaction():
+            tool = self.get(actor.tenant, name, version)
+            if not tool:
+                raise ValueError("Unknown tool version")
+            previous = self.store.get(actor.tenant, "active_tools", name)
+            active = {"name": name, "version": version, "digest": tool["digest"], "generation": (previous["generation"] if previous else 0) + 1, "enabled": True}
+            self.store.put(actor.tenant, "active_tools", name, active)
+        return active
+
+    def disable(self, actor, name):
+        if "administrator" not in actor.roles:
+            raise PermissionError("Administrator role required")
+        with self.store.transaction():
+            active = self.store.get(actor.tenant, "active_tools", name)
+            if not active:
+                raise ValueError("Unknown active tool")
+            active.update(enabled=False, generation=active["generation"] + 1)
+            self.store.put(actor.tenant, "active_tools", name, active)
+        return active
+
+    def current(self, tenant, name):
+        active = self.store.get(tenant, "active_tools", name)
+        if not active or not active["enabled"]:
+            return None
+        return {**active, "tool": self.get(tenant, name, active["version"])}
