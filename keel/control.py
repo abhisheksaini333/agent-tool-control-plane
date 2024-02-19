@@ -21,6 +21,13 @@ class Control:
         identifier(idempotency_key, "idempotency key")
         with self.store.transaction():
             actor = self.accounts.effective(actor)
+            retry_key = digest({"caller": actor.subject, "key": idempotency_key})
+            fingerprint = digest({"name": name, "version": version, "arguments": arguments})
+            previous = self.store.get(actor.tenant, "idempotency", retry_key)
+            if previous:
+                if previous["fingerprint"] != fingerprint:
+                    raise ValueError("Idempotency key already binds different arguments")
+                return self.store.get(actor.tenant, "requests", previous["request_id"])
             active = self.registry.current(actor.tenant, name)
             if not active or active["version"] != version:
                 raise ValueError("Requested tool version is not active")
@@ -42,6 +49,7 @@ class Control:
             }
             request["binding"] = self.binding(request)
             self.store.put(actor.tenant, "requests", request["id"], request)
+            self.store.put(actor.tenant, "idempotency", retry_key, {"fingerprint": fingerprint, "request_id": request["id"]})
             self.audit.append(actor.tenant, actor.subject, "request.created", request["id"], {"binding": request["binding"], "tool": name, "version": version}, now)
         return request
 
