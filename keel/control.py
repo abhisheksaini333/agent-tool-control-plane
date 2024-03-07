@@ -96,3 +96,21 @@ class Control:
             self.store.put(actor.tenant, "requests", request_id, request)
             self.audit.append(actor.tenant, actor.subject, "request.approved", request_id, {"binding": binding, "expires_at": request["approval"]["expires_at"]}, now)
         return request
+
+    def authorize_execution(self, request, now):
+        """Call inside the same transaction as dispatch reservation or effect commit."""
+        self._current_authorization(request, now)
+        if request["tool"]["risk"] == "effect" and not request["requires_approval"]:
+            raise PermissionError("Effect handlers always require human approval")
+        if not request["requires_approval"]:
+            return
+        approval = request["approval"]
+        if not approval or approval["revoked"] or approval["binding"] != request["binding"] or approval["tenant"] != request["tenant"] or now >= approval["expires_at"]:
+            raise PermissionError("A current exact approval is required")
+        approver = self.accounts.current(request["tenant"], approval["subject"])
+        account = self.store.get(approver.tenant, "accounts", approver.subject)
+        if account["generation"] != approval["account_generation"]:
+            raise PermissionError("Approver permissions changed")
+        decision = self.policy.evaluate(approver, request["tool"], "approve", request["caller"])
+        if not decision["allow"] or decision["revision"] != request["policy_revision"]:
+            raise PermissionError("Approval no longer passes current policy")
