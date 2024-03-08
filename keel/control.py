@@ -114,3 +114,21 @@ class Control:
         decision = self.policy.evaluate(approver, request["tool"], "approve", request["caller"])
         if not decision["allow"] or decision["revision"] != request["policy_revision"]:
             raise PermissionError("Approval no longer passes current policy")
+
+    @staticmethod
+    def _visible(actor, request):
+        return request["caller"] == actor.subject or bool(actor.roles & {"approver", "auditor", "administrator"})
+
+    def get(self, actor, request_id):
+        actor = self.accounts.effective(actor)
+        request = self._request(actor.tenant, request_id)
+        if not self._visible(actor, request):
+            raise LookupError("Request not found")
+        return request
+
+    def list_requests(self, actor, limit=100):
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("Limit must be between 1 and 200")
+        actor = self.accounts.effective(actor)
+        visible = [r for r in self.store.list(actor.tenant, "requests") if self._visible(actor, r)]
+        return sorted(visible, key=lambda r: (r["created_at"], r["id"]), reverse=True)[:limit]
