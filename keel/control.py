@@ -132,3 +132,16 @@ class Control:
         actor = self.accounts.effective(actor)
         visible = [r for r in self.store.list(actor.tenant, "requests") if self._visible(actor, r)]
         return sorted(visible, key=lambda r: (r["created_at"], r["id"]), reverse=True)[:limit]
+
+    def cancel(self, actor, request_id, expected_revision, now):
+        with self.store.transaction():
+            actor = self.accounts.effective(actor)
+            request = self._request(actor.tenant, request_id)
+            if actor.subject != request["caller"] and "administrator" not in actor.roles:
+                raise PermissionError("Only the requester or administrator can cancel")
+            if request["revision"] != expected_revision or request["status"] not in {"awaiting_approval", "queued", "running", "retry_wait"}:
+                raise ValueError("Request is no longer cancellable at this revision")
+            request.update(status="cancelled", lease=None, revision=request["revision"] + 1, finished_at=now)
+            self.store.put(actor.tenant, "requests", request_id, request)
+            self.audit.append(actor.tenant, actor.subject, "request.cancelled", request_id, {"effect_committed": False}, now)
+        return request
