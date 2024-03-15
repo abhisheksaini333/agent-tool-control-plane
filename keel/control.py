@@ -145,3 +145,18 @@ class Control:
             self.store.put(actor.tenant, "requests", request_id, request)
             self.audit.append(actor.tenant, actor.subject, "request.cancelled", request_id, {"effect_committed": False}, now)
         return request
+
+    def revoke(self, actor, request_id, expected_revision, now):
+        with self.store.transaction():
+            actor = self.accounts.effective(actor)
+            request = self._request(actor.tenant, request_id)
+            approval = request["approval"]
+            if not approval or not ((actor.subject == approval["subject"] and "approver" in actor.roles) or "administrator" in actor.roles):
+                raise PermissionError("Original approver or administrator required")
+            if request["revision"] != expected_revision or request["status"] not in {"queued", "running", "retry_wait"}:
+                raise ValueError("Approval is no longer revocable at this revision")
+            approval["revoked"] = True
+            request.update(status="revoked", lease=None, revision=request["revision"] + 1, finished_at=now)
+            self.store.put(actor.tenant, "requests", request_id, request)
+            self.audit.append(actor.tenant, actor.subject, "approval.revoked", request_id, {"binding": request["binding"]}, now)
+        return request
