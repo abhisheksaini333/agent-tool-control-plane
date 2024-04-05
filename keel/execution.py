@@ -58,3 +58,20 @@ class Execution:
             self.store.put(tenant, "requests", request_id, request)
             self.control.audit.append(tenant, lease["owner"], "execution.completed", request_id, {"receipt": request_id, "effect_committed": effect is not None}, now)
         return receipt
+
+    def fail(self, tenant, request_id, lease, code, now):
+        transient = {"worker_unavailable", "worker_timeout", "worker_exit", "policy_unavailable"}
+        permanent = {"invalid_output", "authorization_changed", "insufficient_inventory", "resource_limit", "internal_failure"}
+        if code not in transient | permanent:
+            raise ValueError("Unknown safe failure code")
+        with self.store.transaction():
+            request = self.control._request(tenant, request_id)
+            if not self.owns(request, lease, now):
+                return None
+            retry = code in transient and request["attempts"] < self.max_attempts
+            request.update(status="retry_wait" if retry else "failed", lease=None, error=code, revision=request["revision"] + 1, next_attempt_at=now + 2 ** request["attempts"])
+            if not retry:
+                request["finished_at"] = now
+            self.store.put(tenant, "requests", request_id, request)
+            self.control.audit.append(tenant, lease["owner"], "execution.retry_scheduled" if retry else "execution.failed", request_id, {"code": code, "attempt": request["attempts"]}, now)
+        return request
