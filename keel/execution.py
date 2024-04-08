@@ -75,3 +75,23 @@ class Execution:
             self.store.put(tenant, "requests", request_id, request)
             self.control.audit.append(tenant, lease["owner"], "execution.retry_scheduled" if retry else "execution.failed", request_id, {"code": code, "attempt": request["attempts"]}, now)
         return request
+
+    def ready(self, tenant, now):
+        candidates = []
+        with self.store.transaction():
+            for request in self.store.list(tenant, "requests"):
+                if request["status"] not in {"queued", "retry_wait", "running", "awaiting_approval"}:
+                    continue
+                if request["status"] == "running" and request["lease"] and now < request["lease"]["expires_at"]:
+                    continue
+                approval = request["approval"]
+                expired = now >= request["expires_at"] or (approval and now >= approval["expires_at"])
+                exhausted = request["attempts"] >= self.max_attempts
+                if expired or exhausted:
+                    code = "approval_or_request_expired" if expired else "attempts_exhausted"
+                    request.update(status="expired" if expired else "failed", error=code, lease=None, finished_at=now, revision=request["revision"] + 1)
+                    self.store.put(tenant, "requests", request["id"], request)
+                    self.control.audit.append(tenant, "recovery", "execution.closed", request["id"], {"code": code}, now)
+                elif request["status"] != "awaiting_approval" and now >= request["next_attempt_at"]:
+                    candidates.append(request)
+        return sorted(candidates, key=lambda r: (r["created_at"], r["id"]))[:100]
