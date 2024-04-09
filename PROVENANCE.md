@@ -5,3 +5,5 @@ The HTTP/JSON implementation targets Python3.10 and the exact33package profile i
 OPA0.60.0 uses its versioned Rego/HTTP API: [official release](https://github.com/open-policy-agent/opa/releases/tag/v0.60.0), December21,2023. The local verification binary is the original darwin/arm64 artifact with the publisher's SHA256 checked. Node20.10.0 is from the [official November22,2023 release](https://nodejs.org/en/blog/release/v20.10.0). No MCP adapter is included.
 
 Platform-specific Linux image artifacts receive a separate installation and release audit before container acceptance. Exact image/source identifiers and additional UI dependencies are recorded as those integrations are introduced.
+
+PostgreSQL uses the existing `postgres:13.5-alpine` image, [server13.5 released November11,2021](https://www.postgresql.org/docs/release/13.5/). The actual container reports13.5. It is a reproducible local demonstration baseline, not a recommendation to deploy an unsupported old database. Runtime image IDs and digests are captured with the acceptance evidence.
