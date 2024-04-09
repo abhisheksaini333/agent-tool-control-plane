@@ -10,7 +10,7 @@ def _validate(value, depth=0):
     if value is None or type(value) in {str, bool}:
         return
     if type(value) is int:
-        if abs(value) > 2 ** 53 - 1:
+        if abs(value) > 2**53 - 1:
             raise ValueError("Integers must be portable across JSON clients")
         return
     if type(value) is float:
@@ -30,7 +30,13 @@ def _validate(value, depth=0):
 
 def canonical(value):
     _validate(value)
-    text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    text = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
     if len(text.encode("utf-8")) > 65536:
         raise ValueError("JSON exceeds 64 KiB")
     return text

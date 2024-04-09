@@ -25,8 +25,12 @@ class Connection:
         self.raw = psycopg2.connect(url, connect_timeout=5)
         self.raw.autocommit = True
         with self.raw.cursor() as cursor:
-            cursor.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema)))
-            cursor.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))
+            cursor.execute(
+                sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema))
+            )
+            cursor.execute(
+                sql.SQL("SET search_path TO {}").format(sql.Identifier(schema))
+            )
             cursor.execute("SET statement_timeout = '10s'")
             cursor.execute("SET lock_timeout = '5s'")
 

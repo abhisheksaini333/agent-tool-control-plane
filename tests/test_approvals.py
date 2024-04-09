@@ -21,7 +21,9 @@ def test_changed_binding_stale_revision_and_repeat_are_rejected():
             control.approve(BOB, request["id"], binding, revision, 101)
     approved = control.approve(BOB, request["id"], request["binding"], 1, 101)
     with pytest.raises(ValueError):
-        control.approve(BOB, request["id"], request["binding"], approved["revision"], 102)
+        control.approve(
+            BOB, request["id"], request["binding"], approved["revision"], 102
+        )
 
 
 def test_cross_tenant_and_self_approval_are_denied():
@@ -29,7 +31,19 @@ def test_cross_tenant_and_self_approval_are_denied():
     request = submit(control)
     control.accounts.provision("other", "bob", {"approver"})
     with pytest.raises(LookupError):
-        control.approve(Actor("other", "bob", frozenset({"approver"})), request["id"], request["binding"], 1, 101)
+        control.approve(
+            Actor("other", "bob", frozenset({"approver"})),
+            request["id"],
+            request["binding"],
+            1,
+            101,
+        )
     control.accounts.provision("acme", "alice", {"operator", "approver"})
     with pytest.raises((ValueError, PermissionError)):
-        control.approve(Actor("acme", "alice", frozenset({"operator", "approver"})), request["id"], request["binding"], 1, 101)
+        control.approve(
+            Actor("acme", "alice", frozenset({"operator", "approver"})),
+            request["id"],
+            request["binding"],
+            1,
+            101,
+        )

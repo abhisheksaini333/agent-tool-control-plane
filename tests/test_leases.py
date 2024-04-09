@@ -17,7 +17,10 @@ def test_one_worker_claims_a_request_and_owns_its_fencing_token():
     assert execution.owns(claimed, claimed["lease"], 103)
     with pytest.raises(ValueError):
         execution.claim("acme", request["id"], "worker-b", 103)
-    assert control.store.get("acme", "requests", request["id"])["lease"]["owner"] == "worker-a"
+    assert (
+        control.store.get("acme", "requests", request["id"])["lease"]["owner"]
+        == "worker-a"
+    )
 
 
 def test_expired_lease_can_be_reclaimed_but_old_worker_is_fenced():

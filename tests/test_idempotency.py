@@ -14,5 +14,14 @@ def test_key_cannot_be_reused_for_changed_arguments():
     control = make_control()
     first = submit(control)
     with pytest.raises(ValueError):
-        control.submit(ALICE, "inventory.reserve", "1.0.0", {"sku": "SKU-1", "quantity": 3}, "request-1", 101)
-    assert control.store.get("acme", "requests", first["id"])["arguments"]["quantity"] == 2
+        control.submit(
+            ALICE,
+            "inventory.reserve",
+            "1.0.0",
+            {"sku": "SKU-1", "quantity": 3},
+            "request-1",
+            101,
+        )
+    assert (
+        control.store.get("acme", "requests", first["id"])["arguments"]["quantity"] == 2
+    )

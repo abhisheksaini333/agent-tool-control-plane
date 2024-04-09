@@ -7,7 +7,10 @@ SENSITIVE = re.compile(r"password|secret|token|authorization|credential|api.?key
 
 def redact(value, secrets=()):
     if isinstance(value, dict):
-        return {key: "[redacted]" if SENSITIVE.search(key) else redact(item, secrets) for key, item in value.items()}
+        return {
+            key: "[redacted]" if SENSITIVE.search(key) else redact(item, secrets)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [redact(item, secrets) for item in value]
     if isinstance(value, str):
@@ -23,11 +26,28 @@ class Audit:
 
     def append(self, tenant, actor, action, request_id, details, now):
         self.store._write_required()
-        head = self.store.get(tenant, "meta", "audit") or {"sequence": 0, "hash": "0" * 64}
-        event = {"sequence": head["sequence"] + 1, "previous": head["hash"], "tenant": tenant, "actor": actor, "action": action, "request_id": request_id, "details": redact(details), "at": now}
+        head = self.store.get(tenant, "meta", "audit") or {
+            "sequence": 0,
+            "hash": "0" * 64,
+        }
+        event = {
+            "sequence": head["sequence"] + 1,
+            "previous": head["hash"],
+            "tenant": tenant,
+            "actor": actor,
+            "action": action,
+            "request_id": request_id,
+            "details": redact(details),
+            "at": now,
+        }
         event["hash"] = digest(event)
         self.store.put(tenant, "audit", f'{event["sequence"]:012d}', event)
-        self.store.put(tenant, "meta", "audit", {"sequence": event["sequence"], "hash": event["hash"]})
+        self.store.put(
+            tenant,
+            "meta",
+            "audit",
+            {"sequence": event["sequence"], "hash": event["hash"]},
+        )
         return event
 
     def list(self, tenant):
@@ -37,8 +57,14 @@ class Audit:
         previous = "0" * 64
         for sequence, event in enumerate(self.list(tenant), 1):
             supplied = event.pop("hash")
-            if event["sequence"] != sequence or event["previous"] != previous or digest(event) != supplied:
+            if (
+                event["sequence"] != sequence
+                or event["previous"] != previous
+                or digest(event) != supplied
+            ):
                 return False
             previous = supplied
         head = self.store.get(tenant, "meta", "audit")
-        return not head or (head["hash"] == previous and head["sequence"] == len(self.list(tenant)))
+        return not head or (
+            head["hash"] == previous and head["sequence"] == len(self.list(tenant))
+        )

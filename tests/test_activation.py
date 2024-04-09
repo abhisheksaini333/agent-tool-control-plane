@@ -8,7 +8,10 @@ def test_activation_has_monotonic_generation_and_can_be_revoked():
     registry = Registry(Store())
     tool = registry.publish(ADMIN, MANIFEST)
     active = registry.activate(ADMIN, tool["name"], tool["version"])
-    assert active["generation"] == 1 and registry.current("acme", tool["name"])["tool"] == tool
+    assert (
+        active["generation"] == 1
+        and registry.current("acme", tool["name"])["tool"] == tool
+    )
     disabled = registry.disable(ADMIN, tool["name"])
     assert disabled["generation"] == 2 and not disabled["enabled"]
     assert registry.current("acme", tool["name"]) is None

@@ -4,10 +4,16 @@ from keel.store import Store
 
 
 def test_nested_credentials_and_known_secret_values_are_redacted():
-    original = {"authorization": "Bearer abc", "nested": [{"api_key": "abc", "message": "failed using secret-value"}]}
+    original = {
+        "authorization": "Bearer abc",
+        "nested": [{"api_key": "abc", "message": "failed using secret-value"}],
+    }
     clean = redact(original, ["secret-value"])
     assert clean["authorization"] == "[redacted]"
-    assert clean["nested"][0] == {"api_key": "[redacted]", "message": "failed using [redacted]"}
+    assert clean["nested"][0] == {
+        "api_key": "[redacted]",
+        "message": "failed using [redacted]",
+    }
     assert original["authorization"] == "Bearer abc"
 
 

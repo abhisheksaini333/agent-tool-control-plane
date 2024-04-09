@@ -20,7 +20,18 @@ def opa():
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     base = f"http://127.0.0.1:{port}"
-    process = subprocess.Popen([binary, "run", "--server", "--addr", f"127.0.0.1:{port}", str(Path(__file__).resolve().parents[1] / "policy/control.rego")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(
+        [
+            binary,
+            "run",
+            "--server",
+            "--addr",
+            f"127.0.0.1:{port}",
+            str(Path(__file__).resolve().parents[1] / "policy/control.rego"),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     client = httpx.Client(timeout=0.2, trust_env=False)
     try:
         for _ in range(50):
@@ -45,13 +56,19 @@ def test_actual_opa_requires_independent_approval(opa):
     tool = {"handler": "reserve_inventory", "risk": "effect"}
     alice = Actor("acme", "alice", frozenset({"operator", "approver"}))
     bob = Actor("acme", "bob", frozenset({"approver"}))
-    assert opa.evaluate(alice, tool) == {"allow": True, "requires_approval": True, "revision": "keel-2024.1"}
+    assert opa.evaluate(alice, tool) == {
+        "allow": True,
+        "requires_approval": True,
+        "revision": "keel-2024.1",
+    }
     assert not opa.evaluate(alice, tool, "approve", "alice")["allow"]
     assert opa.evaluate(bob, tool, "approve", "alice")["allow"]
 
 
 def test_actual_opa_rejects_forged_handler_risk_and_missing_roles(opa):
     alice = Actor("acme", "alice", frozenset({"operator"}))
-    assert not opa.evaluate(alice, {"handler": "reserve_inventory", "risk": "read"})["allow"]
+    assert not opa.evaluate(alice, {"handler": "reserve_inventory", "risk": "read"})[
+        "allow"
+    ]
     guest = Actor("acme", "guest", frozenset())
     assert not opa.evaluate(guest, {"handler": "sha256", "risk": "read"})["allow"]

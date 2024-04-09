@@ -2,7 +2,23 @@
 from jsonschema import Draft202012Validator
 from .canonical import canonical
 
-ALLOWED = {"type", "properties", "required", "additionalProperties", "minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "items", "enum", "description", "title", "$schema"}
+ALLOWED = {
+    "type",
+    "properties",
+    "required",
+    "additionalProperties",
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "items",
+    "enum",
+    "description",
+    "title",
+    "$schema",
+}
 TYPES = {"object", "array", "string", "integer", "number", "boolean", "null"}
 
 
@@ -41,7 +57,9 @@ def validate_schema(schema):
 
 def validate_arguments(schema, arguments):
     canonical(arguments)
-    errors = sorted(Draft202012Validator(schema).iter_errors(arguments), key=lambda e: str(e.path))
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(arguments), key=lambda e: str(e.path)
+    )
     if errors:
         # Argument values are intentionally excluded from error messages.
         path = ".".join(str(p) for p in errors[0].path) or "arguments"

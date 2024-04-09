@@ -22,11 +22,15 @@ class Control:
         with self.store.transaction():
             actor = self.accounts.effective(actor)
             retry_key = digest({"caller": actor.subject, "key": idempotency_key})
-            fingerprint = digest({"name": name, "version": version, "arguments": arguments})
+            fingerprint = digest(
+                {"name": name, "version": version, "arguments": arguments}
+            )
             previous = self.store.get(actor.tenant, "idempotency", retry_key)
             if previous:
                 if previous["fingerprint"] != fingerprint:
-                    raise ValueError("Idempotency key already binds different arguments")
+                    raise ValueError(
+                        "Idempotency key already binds different arguments"
+                    )
                 return self.store.get(actor.tenant, "requests", previous["request_id"])
             active = self.registry.current(actor.tenant, name)
             if not active or active["version"] != version:
@@ -37,25 +41,72 @@ class Control:
             if not decision["allow"]:
                 raise PermissionError("Policy denied this invocation")
             request = {
-                "id": uuid.uuid4().hex, "tenant": actor.tenant, "caller": actor.subject,
-                "caller_roles": sorted(actor.roles), "caller_generation": self.store.get(actor.tenant, "accounts", actor.subject)["generation"], "tool": deepcopy(tool),
-                "tool_generation": active["generation"], "arguments": deepcopy(arguments),
-                "arguments_digest": digest(arguments), "policy_revision": decision["revision"],
+                "id": uuid.uuid4().hex,
+                "tenant": actor.tenant,
+                "caller": actor.subject,
+                "caller_roles": sorted(actor.roles),
+                "caller_generation": self.store.get(
+                    actor.tenant, "accounts", actor.subject
+                )["generation"],
+                "tool": deepcopy(tool),
+                "tool_generation": active["generation"],
+                "arguments": deepcopy(arguments),
+                "arguments_digest": digest(arguments),
+                "policy_revision": decision["revision"],
                 "requires_approval": decision["requires_approval"],
-                "idempotency_key": idempotency_key, "created_at": now, "expires_at": now + 3600,
-                "status": "awaiting_approval" if decision["requires_approval"] else "queued",
-                "approval": None, "lease": None, "attempts": 0, "revision": 1,
-                "next_attempt_at": now, "receipt": None, "error": None,
+                "idempotency_key": idempotency_key,
+                "created_at": now,
+                "expires_at": now + 3600,
+                "status": "awaiting_approval"
+                if decision["requires_approval"]
+                else "queued",
+                "approval": None,
+                "lease": None,
+                "attempts": 0,
+                "revision": 1,
+                "next_attempt_at": now,
+                "receipt": None,
+                "error": None,
             }
             request["binding"] = self.binding(request)
             self.store.put(actor.tenant, "requests", request["id"], request)
-            self.store.put(actor.tenant, "idempotency", retry_key, {"fingerprint": fingerprint, "request_id": request["id"]})
-            self.audit.append(actor.tenant, actor.subject, "request.created", request["id"], {"binding": request["binding"], "tool": name, "version": version}, now)
+            self.store.put(
+                actor.tenant,
+                "idempotency",
+                retry_key,
+                {"fingerprint": fingerprint, "request_id": request["id"]},
+            )
+            self.audit.append(
+                actor.tenant,
+                actor.subject,
+                "request.created",
+                request["id"],
+                {"binding": request["binding"], "tool": name, "version": version},
+                now,
+            )
         return request
 
     @staticmethod
     def binding(request):
-        return digest({key: request[key] for key in ("id", "tenant", "caller", "caller_roles", "caller_generation", "tool", "tool_generation", "arguments", "arguments_digest", "policy_revision", "requires_approval", "expires_at")})
+        return digest(
+            {
+                key: request[key]
+                for key in (
+                    "id",
+                    "tenant",
+                    "caller",
+                    "caller_roles",
+                    "caller_generation",
+                    "tool",
+                    "tool_generation",
+                    "arguments",
+                    "arguments_digest",
+                    "policy_revision",
+                    "requires_approval",
+                    "expires_at",
+                )
+            }
+        )
 
     def _request(self, tenant, request_id):
         request = self.store.get(tenant, "requests", request_id)
@@ -64,20 +115,35 @@ class Control:
         return request
 
     def _current_authorization(self, request, now):
-        if request["binding"] != self.binding(request) or digest(request["arguments"]) != request["arguments_digest"]:
+        if (
+            request["binding"] != self.binding(request)
+            or digest(request["arguments"]) != request["arguments_digest"]
+        ):
             raise ValueError("Request binding no longer matches its arguments")
         if now >= request["expires_at"]:
             raise ValueError("Request has expired")
         active = self.registry.current(request["tenant"], request["tool"]["name"])
-        if not active or active["generation"] != request["tool_generation"] or active["digest"] != request["tool"]["digest"]:
+        if (
+            not active
+            or active["generation"] != request["tool_generation"]
+            or active["digest"] != request["tool"]["digest"]
+        ):
             raise ValueError("Tool activation changed; submit a fresh request")
         caller = self.accounts.current(request["tenant"], request["caller"])
         account = self.store.get(caller.tenant, "accounts", caller.subject)
         if account["generation"] != request["caller_generation"]:
             raise PermissionError("Caller permissions changed; submit a fresh request")
-        caller = Actor(caller.tenant, caller.subject, caller.roles & frozenset(request["caller_roles"]))
+        caller = Actor(
+            caller.tenant,
+            caller.subject,
+            caller.roles & frozenset(request["caller_roles"]),
+        )
         decision = self.policy.evaluate(caller, request["tool"])
-        if not decision["allow"] or decision["revision"] != request["policy_revision"] or decision["requires_approval"] != request["requires_approval"]:
+        if (
+            not decision["allow"]
+            or decision["revision"] != request["policy_revision"]
+            or decision["requires_approval"] != request["requires_approval"]
+        ):
             raise PermissionError("Current policy no longer authorizes this binding")
         return caller
 
@@ -85,16 +151,42 @@ class Control:
         with self.store.transaction():
             actor = self.accounts.effective(actor)
             request = self._request(actor.tenant, request_id)
-            if request["status"] != "awaiting_approval" or request["revision"] != expected_revision or request["binding"] != binding:
+            if (
+                request["status"] != "awaiting_approval"
+                or request["revision"] != expected_revision
+                or request["binding"] != binding
+            ):
                 raise ValueError("Approval requires the exact current request")
             self._current_authorization(request, now)
-            decision = self.policy.evaluate(actor, request["tool"], "approve", request["caller"])
-            if not decision["allow"] or decision["revision"] != request["policy_revision"]:
+            decision = self.policy.evaluate(
+                actor, request["tool"], "approve", request["caller"]
+            )
+            if (
+                not decision["allow"]
+                or decision["revision"] != request["policy_revision"]
+            ):
                 raise PermissionError("Independent approver permission required")
-            request["approval"] = {"subject": actor.subject, "tenant": actor.tenant, "binding": binding, "created_at": now, "expires_at": min(now + 300, request["expires_at"]), "account_generation": self.store.get(actor.tenant, "accounts", actor.subject)["generation"], "revoked": False}
+            request["approval"] = {
+                "subject": actor.subject,
+                "tenant": actor.tenant,
+                "binding": binding,
+                "created_at": now,
+                "expires_at": min(now + 300, request["expires_at"]),
+                "account_generation": self.store.get(
+                    actor.tenant, "accounts", actor.subject
+                )["generation"],
+                "revoked": False,
+            }
             request.update(status="queued", revision=request["revision"] + 1)
             self.store.put(actor.tenant, "requests", request_id, request)
-            self.audit.append(actor.tenant, actor.subject, "request.approved", request_id, {"binding": binding, "expires_at": request["approval"]["expires_at"]}, now)
+            self.audit.append(
+                actor.tenant,
+                actor.subject,
+                "request.approved",
+                request_id,
+                {"binding": binding, "expires_at": request["approval"]["expires_at"]},
+                now,
+            )
         return request
 
     def authorize_execution(self, request, now):
@@ -105,19 +197,29 @@ class Control:
         if not request["requires_approval"]:
             return
         approval = request["approval"]
-        if not approval or approval["revoked"] or approval["binding"] != request["binding"] or approval["tenant"] != request["tenant"] or now >= approval["expires_at"]:
+        if (
+            not approval
+            or approval["revoked"]
+            or approval["binding"] != request["binding"]
+            or approval["tenant"] != request["tenant"]
+            or now >= approval["expires_at"]
+        ):
             raise PermissionError("A current exact approval is required")
         approver = self.accounts.current(request["tenant"], approval["subject"])
         account = self.store.get(approver.tenant, "accounts", approver.subject)
         if account["generation"] != approval["account_generation"]:
             raise PermissionError("Approver permissions changed")
-        decision = self.policy.evaluate(approver, request["tool"], "approve", request["caller"])
+        decision = self.policy.evaluate(
+            approver, request["tool"], "approve", request["caller"]
+        )
         if not decision["allow"] or decision["revision"] != request["policy_revision"]:
             raise PermissionError("Approval no longer passes current policy")
 
     @staticmethod
     def _visible(actor, request):
-        return request["caller"] == actor.subject or bool(actor.roles & {"approver", "auditor", "administrator"})
+        return request["caller"] == actor.subject or bool(
+            actor.roles & {"approver", "auditor", "administrator"}
+        )
 
     def get(self, actor, request_id):
         actor = self.accounts.effective(actor)
@@ -130,20 +232,46 @@ class Control:
         if type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError("Limit must be between 1 and 200")
         actor = self.accounts.effective(actor)
-        visible = [r for r in self.store.list(actor.tenant, "requests") if self._visible(actor, r)]
-        return sorted(visible, key=lambda r: (r["created_at"], r["id"]), reverse=True)[:limit]
+        visible = [
+            r
+            for r in self.store.list(actor.tenant, "requests")
+            if self._visible(actor, r)
+        ]
+        return sorted(visible, key=lambda r: (r["created_at"], r["id"]), reverse=True)[
+            :limit
+        ]
 
     def cancel(self, actor, request_id, expected_revision, now):
         with self.store.transaction():
             actor = self.accounts.effective(actor)
             request = self._request(actor.tenant, request_id)
-            if actor.subject != request["caller"] and "administrator" not in actor.roles:
+            if (
+                actor.subject != request["caller"]
+                and "administrator" not in actor.roles
+            ):
                 raise PermissionError("Only the requester or administrator can cancel")
-            if request["revision"] != expected_revision or request["status"] not in {"awaiting_approval", "queued", "running", "retry_wait"}:
+            if request["revision"] != expected_revision or request["status"] not in {
+                "awaiting_approval",
+                "queued",
+                "running",
+                "retry_wait",
+            }:
                 raise ValueError("Request is no longer cancellable at this revision")
-            request.update(status="cancelled", lease=None, revision=request["revision"] + 1, finished_at=now)
+            request.update(
+                status="cancelled",
+                lease=None,
+                revision=request["revision"] + 1,
+                finished_at=now,
+            )
             self.store.put(actor.tenant, "requests", request_id, request)
-            self.audit.append(actor.tenant, actor.subject, "request.cancelled", request_id, {"effect_committed": False}, now)
+            self.audit.append(
+                actor.tenant,
+                actor.subject,
+                "request.cancelled",
+                request_id,
+                {"effect_committed": False},
+                now,
+            )
         return request
 
     def revoke(self, actor, request_id, expected_revision, now):
@@ -151,12 +279,31 @@ class Control:
             actor = self.accounts.effective(actor)
             request = self._request(actor.tenant, request_id)
             approval = request["approval"]
-            if not approval or not ((actor.subject == approval["subject"] and "approver" in actor.roles) or "administrator" in actor.roles):
+            if not approval or not (
+                (actor.subject == approval["subject"] and "approver" in actor.roles)
+                or "administrator" in actor.roles
+            ):
                 raise PermissionError("Original approver or administrator required")
-            if request["revision"] != expected_revision or request["status"] not in {"queued", "running", "retry_wait"}:
+            if request["revision"] != expected_revision or request["status"] not in {
+                "queued",
+                "running",
+                "retry_wait",
+            }:
                 raise ValueError("Approval is no longer revocable at this revision")
             approval["revoked"] = True
-            request.update(status="revoked", lease=None, revision=request["revision"] + 1, finished_at=now)
+            request.update(
+                status="revoked",
+                lease=None,
+                revision=request["revision"] + 1,
+                finished_at=now,
+            )
             self.store.put(actor.tenant, "requests", request_id, request)
-            self.audit.append(actor.tenant, actor.subject, "approval.revoked", request_id, {"binding": request["binding"]}, now)
+            self.audit.append(
+                actor.tenant,
+                actor.subject,
+                "approval.revoked",
+                request_id,
+                {"binding": request["binding"]},
+                now,
+            )
         return request

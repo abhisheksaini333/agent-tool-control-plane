@@ -9,7 +9,9 @@ def test_canonical_digest_is_order_independent_and_type_sensitive():
     assert canonical({"x": "✓"}) == '{"x":"✓"}'
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), {1: "bad"}, (1, 2), {"a": object()}, 2 ** 54])
+@pytest.mark.parametrize(
+    "value", [float("nan"), float("inf"), {1: "bad"}, (1, 2), {"a": object()}, 2**54]
+)
 def test_nonportable_or_ambiguous_json_is_rejected(value):
     with pytest.raises(ValueError):
         canonical(value)

@@ -17,7 +17,10 @@ def test_effect_and_receipt_commit_once_and_completion_retry_is_idempotent():
     control, execution, request = ready()
     result = {"checked": True}
     first = execution.complete("acme", request["id"], request["lease"], result, 103)
-    assert execution.complete("acme", request["id"], request["lease"], result, 104) == first
+    assert (
+        execution.complete("acme", request["id"], request["lease"], result, 104)
+        == first
+    )
     assert first["effect"]["quantity"] == 2
     assert Inventory(control.store).list("acme")[0]["available"] == 8
     assert len(control.store.list("acme", "receipts")) == 1
@@ -27,7 +30,12 @@ def test_effect_and_receipt_commit_once_and_completion_retry_is_idempotent():
 def test_cancel_and_revoke_before_completion_prevent_the_effect():
     for action in ["cancel", "revoke"]:
         control, execution, request = ready()
-        getattr(control, action)(ALICE if action == "cancel" else BOB, request["id"], request["revision"], 103)
+        getattr(control, action)(
+            ALICE if action == "cancel" else BOB,
+            request["id"],
+            request["revision"],
+            103,
+        )
         with pytest.raises(ValueError):
             execution.complete("acme", request["id"], request["lease"], {}, 104)
         assert Inventory(control.store).list("acme")[0]["available"] == 10
@@ -42,4 +50,4 @@ def test_stale_worker_and_changed_completion_cannot_commit():
     with pytest.raises(ValueError):
         execution.complete("acme", new["id"], new["lease"], {"ok": False}, 165)
     with pytest.raises(ValueError):
-        control.cancel(ALICE, new["id"], control.get(ALICE,new["id"])["revision"], 165)
+        control.cancel(ALICE, new["id"], control.get(ALICE, new["id"])["revision"], 165)

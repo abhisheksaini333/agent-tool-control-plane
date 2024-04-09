@@ -10,7 +10,11 @@ class Accounts:
         actor = Actor(tenant, subject, frozenset(roles))
         with self.store.transaction():
             previous = self.store.get(tenant, "accounts", subject)
-            account = {**actor.record(), "enabled": True, "generation": (previous["generation"] if previous else 0) + 1}
+            account = {
+                **actor.record(),
+                "enabled": True,
+                "generation": (previous["generation"] if previous else 0) + 1,
+            }
             self.store.put(tenant, "accounts", subject, account)
         return account
 

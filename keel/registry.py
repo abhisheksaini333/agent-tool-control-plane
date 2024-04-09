@@ -27,7 +27,10 @@ class Registry:
             raise ValueError("Version must use major.minor.patch")
         if manifest["handler"] not in HANDLERS:
             raise ValueError("Handler is not installed in the trusted catalog")
-        if not isinstance(manifest["description"], str) or len(manifest["description"]) > 2000:
+        if (
+            not isinstance(manifest["description"], str)
+            or len(manifest["description"]) > 2000
+        ):
             raise ValueError("Description must contain at most 2000 characters")
         validate_schema(manifest["schema"])
         record = {**deepcopy(manifest), **HANDLERS[manifest["handler"]]}
@@ -51,7 +54,13 @@ class Registry:
             if not tool:
                 raise ValueError("Unknown tool version")
             previous = self.store.get(actor.tenant, "active_tools", name)
-            active = {"name": name, "version": version, "digest": tool["digest"], "generation": (previous["generation"] if previous else 0) + 1, "enabled": True}
+            active = {
+                "name": name,
+                "version": version,
+                "digest": tool["digest"],
+                "generation": (previous["generation"] if previous else 0) + 1,
+                "enabled": True,
+            }
             self.store.put(actor.tenant, "active_tools", name, active)
         return active
 

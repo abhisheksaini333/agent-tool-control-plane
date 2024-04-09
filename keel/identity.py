@@ -5,7 +5,9 @@ ROLES = frozenset({"operator", "approver", "auditor", "administrator"})
 
 
 def identifier(value, field="identifier"):
-    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}", value):
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}", value
+    ):
         raise ValueError(f"Invalid {field}")
     return value
 
@@ -23,7 +25,11 @@ class Actor:
             raise ValueError("Invalid roles")
 
     def record(self):
-        return {"tenant": self.tenant, "subject": self.subject, "roles": sorted(self.roles)}
+        return {
+            "tenant": self.tenant,
+            "subject": self.subject,
+            "roles": sorted(self.roles),
+        }
 
 
 def actor_from_claims(claims):
