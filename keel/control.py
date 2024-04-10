@@ -10,12 +10,16 @@ from .schemas import validate_arguments
 
 
 class Control:
-    def __init__(self, store, policy):
+    def __init__(self, store, policy, clock=None):
         self.store = store
         self.policy = policy
+        self.clock = clock
         self.accounts = Accounts(store)
         self.registry = Registry(store)
         self.audit = Audit(store)
+
+    def current_time(self, fallback):
+        return max(fallback, self.clock()) if self.clock else fallback
 
     def submit(self, actor, name, version, arguments, idempotency_key, now):
         identifier(idempotency_key, "idempotency key")
@@ -145,6 +149,8 @@ class Control:
             or decision["requires_approval"] != request["requires_approval"]
         ):
             raise PermissionError("Current policy no longer authorizes this binding")
+        if self.current_time(now) >= request["expires_at"]:
+            raise PermissionError("Request expired during policy evaluation")
         return caller
 
     def approve(self, actor, request_id, binding, expected_revision, now):
@@ -166,6 +172,9 @@ class Control:
                 or decision["revision"] != request["policy_revision"]
             ):
                 raise PermissionError("Independent approver permission required")
+            now = self.current_time(now)
+            if now >= request["expires_at"]:
+                raise PermissionError("Request expired during approval evaluation")
             request["approval"] = {
                 "subject": actor.subject,
                 "tenant": actor.tenant,
@@ -202,7 +211,7 @@ class Control:
             or approval["revoked"]
             or approval["binding"] != request["binding"]
             or approval["tenant"] != request["tenant"]
-            or now >= approval["expires_at"]
+            or self.current_time(now) >= approval["expires_at"]
         ):
             raise PermissionError("A current exact approval is required")
         approver = self.accounts.current(request["tenant"], approval["subject"])
@@ -214,6 +223,8 @@ class Control:
         )
         if not decision["allow"] or decision["revision"] != request["policy_revision"]:
             raise PermissionError("Approval no longer passes current policy")
+        if self.current_time(now) >= min(approval["expires_at"], request["expires_at"]):
+            raise PermissionError("Approval expired during policy evaluation")
 
     @staticmethod
     def _visible(actor, request):

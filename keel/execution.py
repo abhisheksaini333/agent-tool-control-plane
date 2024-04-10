@@ -44,6 +44,7 @@ class Execution:
             if not (ready or abandoned) or request["attempts"] >= self.max_attempts:
                 raise ValueError("Request is not claimable")
             self.control.authorize_execution(request, now)
+            now = self.control.current_time(now)
             request["attempts"] += 1
             request["lease"] = {
                 "owner": owner,
@@ -82,6 +83,9 @@ class Execution:
             if not self.owns(request, lease, now):
                 raise ValueError("Worker no longer owns this execution")
             self.control.authorize_execution(request, now)
+            now = self.control.current_time(now)
+            if not self.owns(request, lease, now):
+                raise ValueError("Worker lease expired during authorization")
             effect = None
             if request["tool"]["handler"] == "reserve_inventory":
                 effect = Inventory(self.store).reserve(
