@@ -48,6 +48,18 @@ def handle(request):
         }
         if request["handler"] == "sign_report":
             result["signature"] = sign(request)
+    elif request["handler"] == "reserve_inventory":
+        arguments = request["arguments"]
+        sku, quantity = arguments.get("sku"), arguments.get("quantity")
+        if (
+            set(arguments) != {"sku", "quantity"}
+            or not isinstance(sku, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:@-]{0,39}", sku)
+        ):
+            raise ValueError("Invalid reservation SKU")
+        if type(quantity) is not int or not 1 <= quantity <= 10:
+            raise ValueError("Invalid reservation quantity")
+        result = {"sku": sku, "quantity": quantity, "signature": sign(request)}
     else:
         raise ValueError("Unknown installed handler")
     return {
