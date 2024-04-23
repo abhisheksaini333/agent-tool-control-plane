@@ -1,11 +1,11 @@
 import pytest
 from keel.registry import Registry
 from keel.store import Store
-from test_registry import ADMIN, MANIFEST
+from test_registry import ADMIN, MANIFEST, registry_with_admin
 
 
 def test_activation_has_monotonic_generation_and_can_be_revoked():
-    registry = Registry(Store())
+    registry = registry_with_admin()
     tool = registry.publish(ADMIN, MANIFEST)
     active = registry.activate(ADMIN, tool["name"], tool["version"])
     assert (
@@ -19,7 +19,7 @@ def test_activation_has_monotonic_generation_and_can_be_revoked():
 
 
 def test_unknown_version_does_not_replace_active_tool():
-    registry = Registry(Store())
+    registry = registry_with_admin()
     tool = registry.publish(ADMIN, MANIFEST)
     registry.activate(ADMIN, tool["name"], tool["version"])
     with pytest.raises(ValueError):

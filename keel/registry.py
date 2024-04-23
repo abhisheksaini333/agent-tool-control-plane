@@ -2,6 +2,7 @@
 from copy import deepcopy
 import re
 from .canonical import digest
+from .accounts import Accounts
 from .identity import identifier
 from .schemas import validate_schema
 
@@ -18,8 +19,6 @@ class Registry:
         self.store = store
 
     def publish(self, actor, manifest):
-        if "administrator" not in actor.roles:
-            raise PermissionError("Administrator role required")
         if set(manifest) != FIELDS:
             raise ValueError("Manifest contains missing or untrusted fields")
         identifier(manifest["name"], "tool name")
@@ -37,6 +36,9 @@ class Registry:
         record["digest"] = digest(record)
         key = f'{record["name"]}@{record["version"]}'
         with self.store.transaction():
+            actor = Accounts(self.store).effective(actor)
+            if "administrator" not in actor.roles:
+                raise PermissionError("Administrator role required")
             previous = self.store.get(actor.tenant, "tools", key)
             if previous and previous != record:
                 raise ValueError("Published versions cannot be changed")
@@ -47,9 +49,10 @@ class Registry:
         return self.store.get(tenant, "tools", f"{name}@{version}")
 
     def activate(self, actor, name, version):
-        if "administrator" not in actor.roles:
-            raise PermissionError("Administrator role required")
         with self.store.transaction():
+            actor = Accounts(self.store).effective(actor)
+            if "administrator" not in actor.roles:
+                raise PermissionError("Administrator role required")
             tool = self.get(actor.tenant, name, version)
             if not tool:
                 raise ValueError("Unknown tool version")
@@ -65,9 +68,10 @@ class Registry:
         return active
 
     def disable(self, actor, name):
-        if "administrator" not in actor.roles:
-            raise PermissionError("Administrator role required")
         with self.store.transaction():
+            actor = Accounts(self.store).effective(actor)
+            if "administrator" not in actor.roles:
+                raise PermissionError("Administrator role required")
             active = self.store.get(actor.tenant, "active_tools", name)
             if not active:
                 raise ValueError("Unknown active tool")
