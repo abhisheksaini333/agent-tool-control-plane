@@ -83,6 +83,8 @@ class DockerRunner:
     ):
         name = "keel-job-" + uuid.uuid4().hex
         process = None
+        started = time.monotonic()
+        self.last_execution = None
         try:
             created = subprocess.run(
                 self.create_command(name, credential_directory, command),
@@ -146,6 +148,14 @@ class DockerRunner:
                     raise WorkerFailure("invalid_output")
                 stdout.seek(0)
                 return stdout.read(65537).decode(), dict(self.last_execution)
+        except WorkerFailure as error:
+            self.last_execution = {
+                **(self.last_execution or {}),
+                "name": name,
+                "failure": error.code,
+                "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
+            }
+            raise
         except (
             subprocess.SubprocessError,
             OSError,
@@ -156,6 +166,12 @@ class DockerRunner:
         finally:
             try:
                 self._remove(name)
+            except (subprocess.SubprocessError, OSError):
+                self.last_execution = {
+                    **(self.last_execution or {}),
+                    "name": name,
+                    "cleanup_pending": True,
+                }
             finally:
                 if process and process.poll() is None:
                     process.kill()

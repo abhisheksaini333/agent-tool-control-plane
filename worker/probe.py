@@ -5,6 +5,7 @@ from pathlib import Path
 import resource
 import socket
 import sys
+import time
 
 
 def cgroup(name):
@@ -40,6 +41,10 @@ def isolation():
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] != ["isolation"]:
+    if sys.argv[1:] == ["sleep"]:
+        print(json.dumps({"started": True}), flush=True)
+        time.sleep(60)
+    elif sys.argv[1:] == ["isolation"]:
+        print(json.dumps(isolation(), sort_keys=True))
+    else:
         raise SystemExit("Unknown operator probe")
-    print(json.dumps(isolation(), sort_keys=True))
