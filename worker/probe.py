@@ -44,6 +44,10 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["sleep"]:
         print(json.dumps({"started": True}), flush=True)
         time.sleep(60)
+    elif sys.argv[1:] == ["memory"]:
+        chunks = []
+        while True:
+            chunks.append(bytearray(b"x" * (4 * 1024 * 1024)))
     elif sys.argv[1:] == ["isolation"]:
         print(json.dumps(isolation(), sort_keys=True))
     else:
