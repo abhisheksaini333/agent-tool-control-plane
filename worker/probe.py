@@ -40,6 +40,22 @@ def isolation():
     return report
 
 
+def cpu():
+    before = dict(line.split() for line in cgroup("cpu.stat").splitlines())
+    wall_start, cpu_start = time.monotonic(), time.process_time()
+    iterations = 0
+    while time.monotonic() - wall_start < 3:
+        iterations += 1
+    after = dict(line.split() for line in cgroup("cpu.stat").splitlines())
+    return {
+        "cpu_max": cgroup("cpu.max"),
+        "wall_seconds": time.monotonic() - wall_start,
+        "cpu_seconds": time.process_time() - cpu_start,
+        "throttled_periods": int(after["nr_throttled"]) - int(before["nr_throttled"]),
+        "iterations": iterations,
+    }
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["sleep"]:
         print(json.dumps({"started": True}), flush=True)
@@ -48,6 +64,8 @@ if __name__ == "__main__":
         chunks = []
         while True:
             chunks.append(bytearray(b"x" * (4 * 1024 * 1024)))
+    elif sys.argv[1:] == ["cpu"]:
+        print(json.dumps(cpu(), sort_keys=True))
     elif sys.argv[1:] == ["isolation"]:
         print(json.dumps(isolation(), sort_keys=True))
     else:
