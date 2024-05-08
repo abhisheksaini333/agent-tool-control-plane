@@ -1,5 +1,6 @@
 """Operator-only isolation probes; never registered as agent tools."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import resource
@@ -56,6 +57,25 @@ def cpu():
     }
 
 
+def credentials():
+    directory = Path("/run/credential")
+    key = (directory / "key").read_bytes()
+    forbidden = [
+        "/run/secrets",
+        "/var/run/docker.sock",
+        "/run/credential/inventory-signing",
+        "/run/credential/report-signing",
+    ]
+    return {
+        "files": sorted(path.name for path in directory.iterdir()),
+        "key_sha256": hashlib.sha256(key).hexdigest(),
+        "credential_in_environment": any(
+            key.decode() in value for value in os.environ.values()
+        ),
+        "forbidden_paths": {path: Path(path).exists() for path in forbidden},
+    }
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["sleep"]:
         print(json.dumps({"started": True}), flush=True)
@@ -64,6 +84,8 @@ if __name__ == "__main__":
         chunks = []
         while True:
             chunks.append(bytearray(b"x" * (4 * 1024 * 1024)))
+    elif sys.argv[1:] == ["credentials"]:
+        print(json.dumps(credentials(), sort_keys=True))
     elif sys.argv[1:] == ["cpu"]:
         print(json.dumps(cpu(), sort_keys=True))
     elif sys.argv[1:] == ["isolation"]:
