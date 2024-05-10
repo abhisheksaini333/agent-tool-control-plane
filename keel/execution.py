@@ -215,3 +215,41 @@ class Execution:
                 ):
                     candidates.append(request)
         return sorted(candidates, key=lambda r: (r["created_at"], r["id"]))[:100]
+
+    def defer_unclaimed(self, tenant, request_id, expected_revision, code, now):
+        if code not in {"policy_unavailable", "authorization_changed"}:
+            raise ValueError("Invalid pre-dispatch failure")
+        with self.store.transaction():
+            request = self.control._request(tenant, request_id)
+            live = (
+                request["status"] == "running"
+                and request["lease"]
+                and now < request["lease"]["expires_at"]
+            )
+            if (
+                live
+                or request["revision"] != expected_revision
+                or request["status"] not in {"queued", "retry_wait", "running"}
+            ):
+                return None
+            request["policy_failures"] = request.get("policy_failures", 0) + 1
+            retry = code == "policy_unavailable" and request["policy_failures"] < 5
+            request.update(
+                status="retry_wait" if retry else "rejected",
+                lease=None,
+                error=code,
+                revision=request["revision"] + 1,
+                next_attempt_at=now + min(2 ** request["policy_failures"], 30),
+            )
+            if not retry:
+                request["finished_at"] = now
+            self.store.put(tenant, "requests", request_id, request)
+            self.control.audit.append(
+                tenant,
+                "policy-check",
+                "execution.deferred" if retry else "execution.rejected",
+                request_id,
+                {"code": code, "failures": request["policy_failures"]},
+                now,
+            )
+        return request

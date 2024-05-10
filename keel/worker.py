@@ -49,14 +49,30 @@ class Worker:
 
     def once(self):
         for tenant in self.tenants:
-            for candidate in self.execution.ready(tenant, self.clock()):
+            for candidate in self.execution.ready(tenant, self.clock())[:8]:
                 if self.stop.is_set():
                     return False
                 try:
                     claimed = self.execution.claim(
                         tenant, candidate["id"], self.owner, self.clock()
                     )
+                except PolicyUnavailable:
+                    self.execution.defer_unclaimed(
+                        tenant,
+                        candidate["id"],
+                        candidate["revision"],
+                        "policy_unavailable",
+                        self.clock(),
+                    )
+                    continue
                 except (ValueError, PermissionError):
+                    self.execution.defer_unclaimed(
+                        tenant,
+                        candidate["id"],
+                        candidate["revision"],
+                        "authorization_changed",
+                        self.clock(),
+                    )
                     continue
                 self._perform(claimed)
                 return True
