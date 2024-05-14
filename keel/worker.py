@@ -4,6 +4,7 @@ import threading
 import time
 import uuid
 from .execution import Execution
+from .identity import identifier
 from .policy import PolicyUnavailable
 from .runner import WorkerFailure
 
@@ -15,7 +16,12 @@ class Worker:
         self.control = control
         self.execution = Execution(control)
         self.runner = runner
-        self.tenants = tuple(tenants)
+        self.tenants = tuple(dict.fromkeys(tenants))
+        if not 1 <= len(self.tenants) <= 32:
+            raise ValueError("Configure between one and32 worker tenants")
+        for tenant in self.tenants:
+            identifier(tenant, "worker tenant")
+        self.cursor = 0
         self.clock = clock or time.time
         self.control.clock = self.clock
         self.owner = "worker-" + uuid.uuid4().hex
@@ -48,7 +54,9 @@ class Worker:
         self.execution.fail(tenant, key, lease, code, self.clock())
 
     def once(self):
-        for tenant in self.tenants:
+        for offset in range(len(self.tenants)):
+            index = (self.cursor + offset) % len(self.tenants)
+            tenant = self.tenants[index]
             for candidate in self.execution.ready(tenant, self.clock())[:8]:
                 if self.stop.is_set():
                     return False
@@ -75,6 +83,7 @@ class Worker:
                     )
                     continue
                 self._perform(claimed)
+                self.cursor = (index + 1) % len(self.tenants)
                 return True
         return False
 
