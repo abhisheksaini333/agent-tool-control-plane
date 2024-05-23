@@ -65,9 +65,13 @@ class JwtVerifier:
                 raise ValueError("Unsupported access token header")
             with self.lock:
                 now = self.clock()
-                if now >= self.expires or (
-                    kid not in self.keys and now >= self.refresh_after
-                ):
+                if now >= self.expires:
+                    if now < self.refresh_after:
+                        raise ValueError(
+                            "Signing key refresh is temporarily unavailable"
+                        )
+                    self._refresh()
+                elif kid not in self.keys and now >= self.refresh_after:
                     self._refresh()
                 key = self.keys.get(kid)
             if key is None:
