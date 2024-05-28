@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 from .auth import AuthenticationError
 from .policy import PolicyUnavailable
 
@@ -15,6 +15,12 @@ class Submission(BaseModel):
     tool: StrictStr = Field(min_length=1, max_length=128)
     version: StrictStr = Field(min_length=1, max_length=20)
     arguments: dict[str, Any]
+
+
+class ApprovalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    binding: StrictStr = Field(pattern=r"^[0-9a-f]{64}$")
+    revision: StrictInt = Field(ge=1)
 
 
 def create_app(control, verifier, settings, clock=None):
@@ -111,5 +117,9 @@ def create_app(control, verifier, settings, clock=None):
         return control.submit(
             identity, body.tool, body.version, body.arguments, idempotency_key, now()
         )
+
+    @app.post("/api/requests/{request_id}/approval")
+    def approve(request_id: str, body: ApprovalInput, identity=Depends(actor)):
+        return control.approve(identity, request_id, body.binding, body.revision, now())
 
     return app
