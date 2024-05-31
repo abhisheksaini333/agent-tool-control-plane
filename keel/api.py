@@ -17,6 +17,11 @@ class Submission(BaseModel):
     arguments: dict[str, Any]
 
 
+class RevisionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: StrictInt = Field(ge=1)
+
+
 class ApprovalInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     binding: StrictStr = Field(pattern=r"^[0-9a-f]{64}$")
@@ -121,5 +126,13 @@ def create_app(control, verifier, settings, clock=None):
     @app.post("/api/requests/{request_id}/approval")
     def approve(request_id: str, body: ApprovalInput, identity=Depends(actor)):
         return control.approve(identity, request_id, body.binding, body.revision, now())
+
+    @app.post("/api/requests/{request_id}/cancel")
+    def cancel(request_id: str, body: RevisionInput, identity=Depends(actor)):
+        return control.cancel(identity, request_id, body.revision, now())
+
+    @app.post("/api/requests/{request_id}/revoke")
+    def revoke(request_id: str, body: RevisionInput, identity=Depends(actor)):
+        return control.revoke(identity, request_id, body.revision, now())
 
     return app
