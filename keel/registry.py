@@ -1,8 +1,10 @@
 """Versioned manifests select trusted handlers, never executable commands."""
 from copy import deepcopy
 import re
+import time
 from .canonical import digest
 from .accounts import Accounts
+from .audit import Audit
 from .identity import identifier
 from .schemas import validate_schema
 
@@ -43,6 +45,19 @@ class Registry:
             if previous and previous != record:
                 raise ValueError("Published versions cannot be changed")
             self.store.put(actor.tenant, "tools", key, record)
+            if not previous:
+                Audit(self.store).append(
+                    actor.tenant,
+                    actor.subject,
+                    "tool.published",
+                    None,
+                    {
+                        "name": record["name"],
+                        "version": record["version"],
+                        "digest": record["digest"],
+                    },
+                    time.time(),
+                )
         return record
 
     def get(self, tenant, name, version):
@@ -65,6 +80,14 @@ class Registry:
                 "enabled": True,
             }
             self.store.put(actor.tenant, "active_tools", name, active)
+            Audit(self.store).append(
+                actor.tenant,
+                actor.subject,
+                "tool.activated",
+                None,
+                {"name": name, "version": version, "generation": active["generation"]},
+                time.time(),
+            )
         return active
 
     def disable(self, actor, name):
@@ -77,6 +100,14 @@ class Registry:
                 raise ValueError("Unknown active tool")
             active.update(enabled=False, generation=active["generation"] + 1)
             self.store.put(actor.tenant, "active_tools", name, active)
+            Audit(self.store).append(
+                actor.tenant,
+                actor.subject,
+                "tool.disabled",
+                None,
+                {"name": name, "generation": active["generation"]},
+                time.time(),
+            )
         return active
 
     def current(self, tenant, name):

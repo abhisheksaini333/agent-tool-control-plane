@@ -4,10 +4,11 @@ from helpers import make_control, submit, ALICE
 
 def test_identical_retry_returns_original_request_without_new_audit():
     control = make_control()
+    before = len(control.audit.list("acme"))
     first = submit(control)
     assert submit(control, now=200) == first
     assert len(control.store.list("acme", "requests")) == 1
-    assert len(control.audit.list("acme")) == 1
+    assert len(control.audit.list("acme")) == before + 1
 
 
 def test_key_cannot_be_reused_for_changed_arguments():
