@@ -17,6 +17,20 @@ class Submission(BaseModel):
     arguments: dict[str, Any]
 
 
+class ManifestInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: StrictStr = Field(min_length=1, max_length=128)
+    version: StrictStr = Field(min_length=1, max_length=20)
+    handler: StrictStr = Field(min_length=1, max_length=40)
+    description: StrictStr = Field(max_length=2000)
+    input_schema: dict[str, Any] = Field(alias="schema")
+
+
+class ActivationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: StrictStr = Field(min_length=1, max_length=20)
+
+
 class RevisionInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: StrictInt = Field(ge=1)
@@ -134,5 +148,50 @@ def create_app(control, verifier, settings, clock=None):
     @app.post("/api/requests/{request_id}/revoke")
     def revoke(request_id: str, body: RevisionInput, identity=Depends(actor)):
         return control.revoke(identity, request_id, body.revision, now())
+
+    def public_tool(tool):
+        return {
+            key: tool[key]
+            for key in ("name", "version", "description", "schema", "risk", "digest")
+        }
+
+    @app.get("/api/tools")
+    def tools(identity=Depends(actor)):
+        if not identity.roles:
+            raise PermissionError("Tool catalog permission required")
+        active = control.store.list(identity.tenant, "active_tools")
+        return [
+            public_tool(
+                control.registry.get(identity.tenant, item["name"], item["version"])
+            )
+            for item in active
+            if item["enabled"]
+        ]
+
+    @app.get("/api/registry")
+    def registry(identity=Depends(actor)):
+        if not identity.roles & {"administrator", "auditor"}:
+            raise PermissionError("Registry inspection permission required")
+        return {
+            "versions": [
+                public_tool(item)
+                for item in control.store.list(identity.tenant, "tools")
+            ],
+            "activations": control.store.list(identity.tenant, "active_tools"),
+        }
+
+    @app.post("/api/registry", status_code=201)
+    def publish(body: ManifestInput, identity=Depends(actor)):
+        return public_tool(
+            control.registry.publish(identity, body.model_dump(by_alias=True))
+        )
+
+    @app.post("/api/registry/{name}/activate")
+    def activate(name: str, body: ActivationInput, identity=Depends(actor)):
+        return control.registry.activate(identity, name, body.version)
+
+    @app.post("/api/registry/{name}/disable")
+    def disable(name: str, identity=Depends(actor)):
+        return control.registry.disable(identity, name)
 
     return app
