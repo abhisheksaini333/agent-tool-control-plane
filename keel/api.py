@@ -1,4 +1,5 @@
 """Identity-scoped HTTP API; no endpoint accepts caller or tenant authority."""
+from copy import deepcopy
 import time
 from typing import Annotated, Any
 from fastapi import Depends, FastAPI, Header
@@ -8,6 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 from .auth import AuthenticationError
 from .policy import PolicyUnavailable
+from .inventory import Inventory
 
 
 class Submission(BaseModel):
@@ -121,11 +123,11 @@ def create_app(control, verifier, settings, clock=None):
 
     @app.get("/api/requests")
     def requests(limit: int = 100, identity=Depends(actor)):
-        return control.list_requests(identity, limit)
+        return [public_request(item) for item in control.list_requests(identity, limit)]
 
     @app.get("/api/requests/{request_id}")
     def request(request_id: str, identity=Depends(actor)):
-        return control.get(identity, request_id)
+        return public_request(control.get(identity, request_id))
 
     @app.post("/api/requests", status_code=201)
     def submit(
@@ -133,21 +135,41 @@ def create_app(control, verifier, settings, clock=None):
         identity=Depends(actor),
         idempotency_key: Annotated[str, Header(max_length=128)] = "",
     ):
-        return control.submit(
-            identity, body.tool, body.version, body.arguments, idempotency_key, now()
+        return public_request(
+            control.submit(
+                identity,
+                body.tool,
+                body.version,
+                body.arguments,
+                idempotency_key,
+                now(),
+            )
         )
 
     @app.post("/api/requests/{request_id}/approval")
     def approve(request_id: str, body: ApprovalInput, identity=Depends(actor)):
-        return control.approve(identity, request_id, body.binding, body.revision, now())
+        return public_request(
+            control.approve(identity, request_id, body.binding, body.revision, now())
+        )
 
     @app.post("/api/requests/{request_id}/cancel")
     def cancel(request_id: str, body: RevisionInput, identity=Depends(actor)):
-        return control.cancel(identity, request_id, body.revision, now())
+        return public_request(
+            control.cancel(identity, request_id, body.revision, now())
+        )
 
     @app.post("/api/requests/{request_id}/revoke")
     def revoke(request_id: str, body: RevisionInput, identity=Depends(actor)):
-        return control.revoke(identity, request_id, body.revision, now())
+        return public_request(
+            control.revoke(identity, request_id, body.revision, now())
+        )
+
+    def public_request(request):
+        result = deepcopy(request)
+        result["tool"] = public_tool(result["tool"])
+        if result["lease"]:
+            result["lease"].pop("token", None)
+        return result
 
     def public_tool(tool):
         return {
@@ -193,5 +215,26 @@ def create_app(control, verifier, settings, clock=None):
     @app.post("/api/registry/{name}/disable")
     def disable(name: str, identity=Depends(actor)):
         return control.registry.disable(identity, name)
+
+    @app.get("/api/requests/{request_id}/audit")
+    def request_audit(request_id: str, identity=Depends(actor)):
+        control.get(identity, request_id)
+        return [
+            event
+            for event in control.audit.list(identity.tenant)
+            if event["request_id"] == request_id
+        ]
+
+    @app.get("/api/audit")
+    def audit(identity=Depends(actor)):
+        if not identity.roles & {"auditor", "administrator"}:
+            raise PermissionError("Tenant audit permission required")
+        return control.audit.list(identity.tenant)[-200:]
+
+    @app.get("/api/inventory")
+    def inventory(identity=Depends(actor)):
+        if not identity.roles:
+            raise PermissionError("Inventory inspection permission required")
+        return Inventory(control.store).list(identity.tenant)
 
     return app
