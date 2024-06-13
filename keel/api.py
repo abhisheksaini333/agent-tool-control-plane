@@ -5,11 +5,13 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 from .auth import AuthenticationError
 from .policy import PolicyUnavailable
 from .inventory import Inventory
+from .http_boundary import HttpBoundary
 
 
 class Submission(BaseModel):
@@ -51,6 +53,15 @@ def create_app(control, verifier, settings, clock=None):
         title="Keel tool control plane",
         docs_url="/api/docs" if settings.local_demo else None,
         redoc_url=None,
+    )
+    app.add_middleware(HttpBoundary)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.web_origin],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        expose_headers=["X-Request-ID"],
+        allow_credentials=False,
     )
     bearer = HTTPBearer(auto_error=False)
 
