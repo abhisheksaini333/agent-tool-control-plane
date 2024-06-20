@@ -13,5 +13,15 @@ services:
       timeout: 3s
       retries: 20
     mem_limit: 256m
+  redis:
+    image: redis:7.0.11-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    ports: ["127.0.0.1:6394:6379"]
+    mem_limit: 96m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 volumes:
   keel-data:
