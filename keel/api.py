@@ -12,6 +12,7 @@ from .auth import AuthenticationError
 from .policy import PolicyUnavailable
 from .inventory import Inventory
 from .http_boundary import HttpBoundary
+from .admission import AdmissionDenied, AdmissionUnavailable
 
 
 class Submission(BaseModel):
@@ -46,7 +47,7 @@ class ApprovalInput(BaseModel):
     revision: StrictInt = Field(ge=1)
 
 
-def create_app(control, verifier, settings, clock=None):
+def create_app(control, verifier, settings, clock=None, admission=None):
     now = clock or time.time
     control.clock = now
     app = FastAPI(
@@ -74,6 +75,29 @@ def create_app(control, verifier, settings, clock=None):
         if identity.tenant not in settings.tenants:
             raise AuthenticationError("Tenant is not configured")
         return control.accounts.effective(identity)
+
+    def mutating_actor(identity=Depends(actor)):
+        if admission is not None:
+            admission.check(identity)
+        return identity
+
+    @app.exception_handler(AdmissionDenied)
+    async def rate_denied(request, error):
+        return JSONResponse(
+            {"error": "rate_limited", "message": "Too many changes; retry shortly"},
+            status_code=429,
+            headers={"Retry-After": str(error.retry_after)},
+        )
+
+    @app.exception_handler(AdmissionUnavailable)
+    async def admission_unavailable(request, error):
+        return JSONResponse(
+            {
+                "error": "admission_unavailable",
+                "message": "Changes are temporarily paused; inspection remains available",
+            },
+            status_code=503,
+        )
 
     @app.exception_handler(AuthenticationError)
     async def authentication_error(request, error):
@@ -143,7 +167,7 @@ def create_app(control, verifier, settings, clock=None):
     @app.post("/api/requests", status_code=201)
     def submit(
         body: Submission,
-        identity=Depends(actor),
+        identity=Depends(mutating_actor),
         idempotency_key: Annotated[str, Header(max_length=128)] = "",
     ):
         return public_request(
@@ -158,19 +182,19 @@ def create_app(control, verifier, settings, clock=None):
         )
 
     @app.post("/api/requests/{request_id}/approval")
-    def approve(request_id: str, body: ApprovalInput, identity=Depends(actor)):
+    def approve(request_id: str, body: ApprovalInput, identity=Depends(mutating_actor)):
         return public_request(
             control.approve(identity, request_id, body.binding, body.revision, now())
         )
 
     @app.post("/api/requests/{request_id}/cancel")
-    def cancel(request_id: str, body: RevisionInput, identity=Depends(actor)):
+    def cancel(request_id: str, body: RevisionInput, identity=Depends(mutating_actor)):
         return public_request(
             control.cancel(identity, request_id, body.revision, now())
         )
 
     @app.post("/api/requests/{request_id}/revoke")
-    def revoke(request_id: str, body: RevisionInput, identity=Depends(actor)):
+    def revoke(request_id: str, body: RevisionInput, identity=Depends(mutating_actor)):
         return public_request(
             control.revoke(identity, request_id, body.revision, now())
         )
@@ -214,17 +238,17 @@ def create_app(control, verifier, settings, clock=None):
         }
 
     @app.post("/api/registry", status_code=201)
-    def publish(body: ManifestInput, identity=Depends(actor)):
+    def publish(body: ManifestInput, identity=Depends(mutating_actor)):
         return public_tool(
             control.registry.publish(identity, body.model_dump(by_alias=True))
         )
 
     @app.post("/api/registry/{name}/activate")
-    def activate(name: str, body: ActivationInput, identity=Depends(actor)):
+    def activate(name: str, body: ActivationInput, identity=Depends(mutating_actor)):
         return control.registry.activate(identity, name, body.version)
 
     @app.post("/api/registry/{name}/disable")
-    def disable(name: str, identity=Depends(actor)):
+    def disable(name: str, identity=Depends(mutating_actor)):
         return control.registry.disable(identity, name)
 
     @app.get("/api/requests/{request_id}/audit")
