@@ -6,12 +6,13 @@ class Accounts:
     def __init__(self, store):
         self.store = store
 
-    def provision(self, tenant, subject, roles):
+    def provision(self, tenant, subject, roles, display_name=None):
         actor = Actor(tenant, subject, frozenset(roles))
         with self.store.transaction():
             previous = self.store.get(tenant, "accounts", subject)
             account = {
                 **actor.record(),
+                "display_name": display_name or subject,
                 "enabled": True,
                 "generation": (previous["generation"] if previous else 0) + 1,
             }

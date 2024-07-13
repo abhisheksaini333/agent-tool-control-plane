@@ -1,0 +1,9 @@
+[
+  {"id":"10000000-0000-4000-8000-000000000001","username":"alice","display_name":"Alice Chen","tenant":"acme","roles":["operator"]},
+  {"id":"10000000-0000-4000-8000-000000000002","username":"bob","display_name":"Bob Rivera","tenant":"acme","roles":["approver"]},
+  {"id":"10000000-0000-4000-8000-000000000003","username":"clara","display_name":"Clara Okafor","tenant":"acme","roles":["administrator","auditor"]},
+  {"id":"10000000-0000-4000-8000-000000000004","username":"north-operator","display_name":"North Operator","tenant":"north","roles":["operator"]},
+  {"id":"10000000-0000-4000-8000-000000000005","username":"north-reviewer","display_name":"North Reviewer","tenant":"north","roles":["approver"]},
+  {"id":"10000000-0000-4000-8000-000000000006","username":"auditor","display_name":"Morgan Lee","tenant":"acme","roles":["auditor"]},
+  {"id":"10000000-0000-4000-8000-000000000007","username":"north-admin","display_name":"North Administrator","tenant":"north","roles":["administrator","auditor"]}
+]
