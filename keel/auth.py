@@ -12,7 +12,7 @@ class AuthenticationError(PermissionError):
 
 class JwtVerifier:
     def __init__(
-        self, issuer, audience, client=None, parties=("keel-console",), clock=None
+        self, issuer, audience, client=None, parties=("keel-console", "keel-demo-cli"), clock=None
     ):
         self.issuer = issuer.rstrip("/")
         self.audience = audience

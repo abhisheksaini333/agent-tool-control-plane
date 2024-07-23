@@ -11,3 +11,5 @@ PostgreSQL uses the existing `postgres:13.5-alpine` image, [server13.5 released 
 The dependency-free worker is built from `python:3.10.11-slim-bullseye` at manifest `sha256:fd86924ba14682eb11a3c244f60a35b5dfe3267cbf26d883fb5c14813ce926f1`. The cached ARM64 base was created May23,2023; actual worker execution is verified under Docker. No packages are installed into this worker image.
 
 Redis uses the cached `redis:7.0.11-alpine` artifact, created before January1,2024. Its actual server version and image digest are captured in acceptance evidence. Admission counters are disposable; PostgreSQL retains all execution and receipt state.
+
+Keycloak18.0.2 uses image digest `sha256:b4841a7b8401fd209bfcddf10773cdfa7c7cfde4bf7e87780663226be5587ee2`, created June24,2022. The local AMD64 image runs under Docker emulation on ARM64. Actual issued tokens passed RSA/issuer/audience verification. The console uses authorization code with S256 PKCE; a separate demo-only CLI client supports integration checks.

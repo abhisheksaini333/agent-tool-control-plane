@@ -1,0 +1,286 @@
+{
+  "realm": "keel",
+  "enabled": true,
+  "displayName": "Keel local workspace",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {
+        "name": "operator"
+      },
+      {
+        "name": "approver"
+      },
+      {
+        "name": "administrator"
+      },
+      {
+        "name": "auditor"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "keel-console",
+      "publicClient": true,
+      "enabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5294/"
+      ],
+      "webOrigins": [
+        "http://localhost:5294"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "keel-api",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tenant",
+            "claim.name": "tenant",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "keel-demo-cli",
+      "publicClient": true,
+      "enabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "keel-api",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tenant",
+            "claim.name": "tenant",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice Chen",
+      "email": "alice@example.test",
+      "attributes": {
+        "tenant": [
+          "acme"
+        ]
+      },
+      "realmRoles": [
+        "operator"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Bob Rivera",
+      "email": "bob@example.test",
+      "attributes": {
+        "tenant": [
+          "acme"
+        ]
+      },
+      "realmRoles": [
+        "approver"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "username": "clara",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Clara Okafor",
+      "email": "clara@example.test",
+      "attributes": {
+        "tenant": [
+          "acme"
+        ]
+      },
+      "realmRoles": [
+        "administrator",
+        "auditor"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "username": "north-operator",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "North Operator",
+      "email": "north-operator@example.test",
+      "attributes": {
+        "tenant": [
+          "north"
+        ]
+      },
+      "realmRoles": [
+        "operator"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "username": "north-reviewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "North Reviewer",
+      "email": "north-reviewer@example.test",
+      "attributes": {
+        "tenant": [
+          "north"
+        ]
+      },
+      "realmRoles": [
+        "approver"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "username": "auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Morgan Lee",
+      "email": "auditor@example.test",
+      "attributes": {
+        "tenant": [
+          "acme"
+        ]
+      },
+      "realmRoles": [
+        "auditor"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000007",
+      "username": "north-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "North Administrator",
+      "email": "north-admin@example.test",
+      "attributes": {
+        "tenant": [
+          "north"
+        ]
+      },
+      "realmRoles": [
+        "administrator",
+        "auditor"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "keel-demo-password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
