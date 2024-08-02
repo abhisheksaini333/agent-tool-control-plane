@@ -47,7 +47,7 @@ class ApprovalInput(BaseModel):
     revision: StrictInt = Field(ge=1)
 
 
-def create_app(control, verifier, settings, clock=None, admission=None):
+def create_app(control, verifier, settings, clock=None, admission=None, readiness=None):
     now = clock or time.time
     control.clock = now
     app = FastAPI(
@@ -151,6 +151,14 @@ def create_app(control, verifier, settings, clock=None, admission=None):
     @app.get("/health")
     def health():
         return {"status": "ok", "service": "keel-api"}
+
+    @app.get("/ready")
+    def ready():
+        checks = readiness() if readiness else {"runtime": False}
+        return JSONResponse(
+            {"ready": all(checks.values()), "checks": checks},
+            status_code=200 if all(checks.values()) else 503,
+        )
 
     @app.get("/api/me")
     def me(identity=Depends(actor)):
