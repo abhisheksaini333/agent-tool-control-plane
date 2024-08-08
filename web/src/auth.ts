@@ -17,6 +17,7 @@ function decode(value: string): Uint8Array {
 export class AuthSession {
   private tokens?: Tokens;
   private expiresAt = 0;
+  private subject?: string;
   private generation = 0;
   private refreshing?: Promise<string>;
   constructor(private config: AuthConfig, private storage: Storage) {}
@@ -49,8 +50,9 @@ export class AuthSession {
     const generation = this.generation;
     const tokens = await this.exchange({ grant_type: 'authorization_code', code: url.searchParams.get('code')!,
       redirect_uri: this.config.redirectUri, code_verifier: pending.verifier });
-    await this.verifyIdToken(tokens.id_token, pending.nonce);
+    const subject = await this.verifyIdToken(tokens.id_token, pending.nonce);
     if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
+    this.subject = subject;
     this.save(tokens);
   }
 
@@ -69,13 +71,13 @@ export class AuthSession {
     return tokens;
   }
 
-  private async verifyIdToken(token: string, nonce?: string): Promise<void> {
+  private async verifyIdToken(token: string, nonce?: string): Promise<string> {
     if (token.length > 16384 || token.split('.').length !== 3) throw new Error('Invalid identity token.');
     const [head, payload, signature] = token.split('.');
     const header = JSON.parse(new TextDecoder().decode(decode(head)));
     const claims = JSON.parse(new TextDecoder().decode(decode(payload)));
     if (header.alg !== 'RS256' || typeof header.kid !== 'string' || header.kid.length > 128 ||
-        claims.iss !== this.config.authority || !([claims.aud].flat().includes(this.config.clientId)) ||
+        typeof claims.sub !== 'string' || !claims.sub || claims.iss !== this.config.authority || !([claims.aud].flat().includes(this.config.clientId)) ||
         (claims.azp !== undefined && claims.azp !== this.config.clientId) ||
         typeof claims.exp !== 'number' || claims.exp <= Date.now() / 1000 ||
         (nonce !== undefined && claims.nonce !== nonce)) throw new Error('Invalid identity token.');
@@ -89,6 +91,7 @@ export class AuthSession {
     if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decode(signature), encoder.encode(`${head}.${payload}`))) {
       throw new Error('Invalid identity signature.');
     }
+    return claims.sub;
   }
 
   private save(tokens: Tokens): void { this.tokens = tokens; this.expiresAt = Date.now() + tokens.expires_in * 1000; }
@@ -102,7 +105,8 @@ export class AuthSession {
       const refreshToken = this.tokens.refresh_token;
       this.refreshing = (async () => {
         const tokens = await this.exchange({ grant_type: 'refresh_token', refresh_token: refreshToken });
-        await this.verifyIdToken(tokens.id_token);
+        const subject = await this.verifyIdToken(tokens.id_token);
+        if (subject !== this.subject && generation === this.generation) throw new Error('Identity changed during refresh. Sign in again.');
         if (generation !== this.generation) throw new Error('Session was signed out.');
         this.save(tokens);
         return tokens.access_token;
@@ -121,5 +125,5 @@ export class AuthSession {
     return url.toString();
   }
 
-  clear(): void { this.generation++; this.tokens = undefined; this.refreshing = undefined; this.expiresAt = 0; this.storage.removeItem(pendingKey); }
+  clear(): void { this.generation++; this.tokens = undefined; this.subject = undefined; this.refreshing = undefined; this.expiresAt = 0; this.storage.removeItem(pendingKey); }
 }
