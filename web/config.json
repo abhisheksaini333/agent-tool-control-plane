@@ -1,0 +1,6 @@
+{
+  "apiOrigin": "http://127.0.0.1:5484",
+  "authority": "http://localhost:8294/realms/keel",
+  "clientId": "keel-console",
+  "redirectUri": "http://localhost:5294/"
+}
