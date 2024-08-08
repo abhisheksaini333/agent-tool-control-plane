@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && node build.mjs",
     "start": "node server.mjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "react": "18.2.0",
