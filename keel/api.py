@@ -162,7 +162,10 @@ def create_app(control, verifier, settings, clock=None, admission=None, readines
 
     @app.get("/api/me")
     def me(identity=Depends(actor)):
-        return identity.record()
+        return {
+            **identity.record(),
+            "display_name": display_name(identity.tenant, identity.subject),
+        }
 
     @app.get("/api/requests")
     def requests(limit: int = 100, identity=Depends(actor)):
@@ -207,9 +210,18 @@ def create_app(control, verifier, settings, clock=None, admission=None, readines
             control.revoke(identity, request_id, body.revision, now())
         )
 
+    def display_name(tenant, subject):
+        account = control.store.get(tenant, "accounts", subject)
+        return account.get("display_name", subject) if account else subject
+
     def public_request(request):
         result = deepcopy(request)
         result["tool"] = public_tool(result["tool"])
+        result["caller_name"] = display_name(result["tenant"], result["caller"])
+        if result["approval"]:
+            result["approver_name"] = display_name(
+                result["tenant"], result["approval"]["subject"]
+            )
         if result["lease"]:
             result["lease"].pop("token", None)
         return result

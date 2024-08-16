@@ -29,3 +29,19 @@ def test_inventory_view_is_scoped_to_authenticated_tenant(api):
     )
     assert response.status_code == 200
     assert response.json() == [{"sku": "SKU-1", "available": 10}]
+
+
+def test_display_names_are_tenant_scoped_and_do_not_change_approval_binding(api):
+    client, control = api
+    control.accounts.provision("acme", "alice", ["operator"], "Alice Chen")
+    control.accounts.provision("north", "alice", ["operator"], "Private North Name")
+    request = create(client)
+    headers = {"Authorization": "Bearer alice-token"}
+    assert client.get("/api/me", headers=headers).json()["display_name"] == "Alice Chen"
+    shown = client.get(f'/api/requests/{request["id"]}', headers=headers).json()
+    assert shown["caller_name"] == "Alice Chen"
+    assert (
+        shown["binding"]
+        == control.store.get("acme", "requests", request["id"])["binding"]
+    )
+    assert "Private North Name" not in str(shown)
