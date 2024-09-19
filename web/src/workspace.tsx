@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { RequestDetail } from './request-detail';
 import { Compose } from './compose';
 import { ApiClient, Me, RequestRecord, errorMessage, statusLabel, timeLabel } from './client';
 export function Workspace({ api, me, signOut }: { api: ApiClient; me: Me; signOut: () => void }) {
@@ -41,7 +42,7 @@ export function Workspace({ api, me, signOut }: { api: ApiClient; me: Me; signOu
           <div className="request-list">{requests.map(row=><button key={row.id} className={`request-item ${selected===row.id?'selected':''}`} aria-pressed={selected===row.id} onClick={()=>choose(row)}>
             <span className={`badge ${row.status}`}>{statusLabel(row.status)}</span><strong>{row.tool.name}</strong><span>{row.caller_name} · {timeLabel(row.created_at)}</span><code>{row.id.slice(0,8)}</code>
           </button>)}{!requests.length&&<p className="empty">{loading?'Loading requests…':'No requests yet. Your next action starts here.'}</p>}</div></section>
-          <section className="detail">{composing?<Compose api={api} cancel={()=>setComposing(false)} done={request=>{choose(request);void refresh();}} />:view?<><p className="eyebrow">REQUEST {view.id.slice(0,8)}</p><h2>{view.tool.name}</h2><p className="muted">Version {view.tool.version} · Requested by {view.caller_name}</p><span className={`badge ${view.status}`}>{statusLabel(view.status)}</span><h3>Exact arguments</h3><pre>{JSON.stringify(view.arguments,null,2)}</pre><p className="muted small">Expires {timeLabel(view.expires_at)}</p></>:<div className="empty-detail"><span className="detail-symbol">↗</span><h2>Every action starts with context.</h2><p>Select a request to inspect its arguments,<br />approval and execution record.</p></div>}</section>
+          <section className="detail">{composing?<Compose api={api} cancel={()=>setComposing(false)} done={request=>{choose(request);void refresh();}} />:view?<RequestDetail key={view.id} api={api} me={me} request={view} changed={row=>{if(selection.current===row.id){generation.current++;setView(row);void refresh();}}} />:<div className="empty-detail"><span className="detail-symbol">↗</span><h2>Every action starts with context.</h2><p>Select a request to inspect its arguments,<br />approval and execution record.</p></div>}</section>
         </div>
       </main>
     </div>
