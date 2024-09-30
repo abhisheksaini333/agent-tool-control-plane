@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Receipt } from './receipt';
+import { AuditTrail } from './audit';
 import { ApiClient, Me, RequestRecord, errorMessage, statusLabel, timeLabel } from './client';
 const stoppable = new Set(['awaiting_approval','queued','running','retry_wait']);
 export function RequestDetail({ api, me, request, changed }: { api: ApiClient; me: Me; request: RequestRecord; changed: (request: RequestRecord) => void }) {
@@ -34,6 +36,8 @@ export function RequestDetail({ api, me, request, changed }: { api: ApiClient; m
     {request.approval&&<div className="approval-note">{request.approval.revoked?'Approval revoked':'Approved'} by <strong>{request.approver_name||request.approval.subject}</strong><span>Approval expires {timeLabel(request.approval.expires_at)}</span></div>}
     {request.error&&<div className="error" role="status">{failureExplanation(request.error,request.status)}</div>}
     {(cancel||revoke)&&<div className="form-actions">{cancel&&<button disabled={busy} onClick={()=>void act('cancel')}>Cancel request</button>}{revoke&&<button disabled={busy} onClick={()=>void act('revoke')}>Revoke approval</button>}<span className="muted small">Stops work that has not committed.</span></div>}
+    <Receipt request={request} />
+    <AuditTrail api={api} requestId={request.id} revision={request.revision} />
     <details className="integrity"><summary>Request identity and approval binding</summary><dl><dt>Request ID</dt><dd>{request.id}</dd><dt>Argument digest</dt><dd>{request.arguments_digest}</dd><dt>Approval binding</dt><dd>{request.binding}</dd></dl></details>
   </>;
 }
