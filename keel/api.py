@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 from .auth import AuthenticationError
 from .policy import PolicyUnavailable
 from .inventory import Inventory
+from .registry import HANDLERS
 from .http_boundary import HttpBoundary
 from .admission import AdmissionDenied, AdmissionUnavailable
 
@@ -250,8 +251,9 @@ def create_app(control, verifier, settings, clock=None, admission=None, readines
         if not identity.roles & {"administrator", "auditor"}:
             raise PermissionError("Registry inspection permission required")
         return {
+            "handlers": sorted(HANDLERS),
             "versions": [
-                public_tool(item)
+                {**public_tool(item), "handler": item["handler"]}
                 for item in control.store.list(identity.tenant, "tools")
             ],
             "activations": control.store.list(identity.tenant, "active_tools"),

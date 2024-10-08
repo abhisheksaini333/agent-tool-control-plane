@@ -49,3 +49,21 @@ def test_registry_mutations_require_current_administrator(api, monkeypatch):
         ).status_code
         == 403
     )
+
+
+def test_admin_registry_exposes_installed_handler_names_without_credentials(
+    api, monkeypatch
+):
+    client, control = api
+    monkeypatch.setattr(FixtureVerifier, "verify", lambda self, token: ADMIN)
+    response = client.get(
+        "/api/registry", headers={"Authorization": "Bearer admin-token"}
+    )
+    assert response.status_code == 200
+    assert response.json()["versions"][0]["handler"] == "reserve_inventory"
+    assert set(response.json()["handlers"]) == {
+        "sha256",
+        "sign_report",
+        "reserve_inventory",
+    }
+    assert "credential" not in response.text
