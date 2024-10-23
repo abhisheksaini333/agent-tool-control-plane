@@ -86,7 +86,7 @@ export function Workspace({
             className={`nav-item ${tab === "desk" ? "active" : ""}`}
             onClick={() => setTab("desk")}
           >
-            ◫ <span>Action desk</span>
+            <span aria-hidden="true">◫</span> <span>Action desk</span>
           </button>
           {administrative && (
             <>
@@ -94,13 +94,13 @@ export function Workspace({
                 className={`nav-item ${tab === "registry" ? "active" : ""}`}
                 onClick={() => setTab("registry")}
               >
-                ⊞ <span>Tool registry</span>
+                <span aria-hidden="true">⊞</span> <span>Tool registry</span>
               </button>
               <button
                 className={`nav-item ${tab === "audit" ? "active" : ""}`}
                 onClick={() => setTab("audit")}
               >
-                ≡ <span>Workspace audit</span>
+                <span aria-hidden="true">≡</span> <span>Workspace audit</span>
               </button>
             </>
           )}
