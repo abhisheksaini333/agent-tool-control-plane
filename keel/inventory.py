@@ -2,6 +2,10 @@
 from .identity import identifier
 
 
+class InsufficientInventory(ValueError):
+    """The business simulator cannot satisfy this otherwise authorized action."""
+
+
 class Inventory:
     def __init__(self, store):
         self.store = store
@@ -34,7 +38,7 @@ class Inventory:
             return previous
         stock = self.store.get(tenant, "inventory", sku)
         if not stock or stock["available"] < quantity:
-            raise ValueError("Insufficient simulated inventory")
+            raise InsufficientInventory("Insufficient simulated inventory")
         stock["available"] -= quantity
         reservation = {
             "id": request_id,

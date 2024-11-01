@@ -55,12 +55,12 @@ class Settings:
             raise ValueError("Production settings must be supplied explicitly")
         tenants = tuple(dict.fromkeys(env.get("KEEL_TENANTS", "acme,north").split(",")))
         if not 1 <= len(tenants) <= 32:
-            raise ValueError("Configure between one and32 tenants")
+            raise ValueError("Configure between one and 32 tenants")
         for tenant in tenants:
             identifier(tenant, "configured tenant")
         timeout = float(env.get("KEEL_WORKER_TIMEOUT", "10"))
         if not 0.1 <= timeout <= 30:
-            raise ValueError("Worker timeout must be between0.1 and30 seconds")
+            raise ValueError("Worker timeout must be between 0.1 and 30 seconds")
         database = env.get(
             "KEEL_DATABASE_URL",
             "postgresql://keel:keel-local-only@127.0.0.1:56484/keel",

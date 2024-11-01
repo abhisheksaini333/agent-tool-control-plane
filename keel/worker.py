@@ -4,6 +4,7 @@ import threading
 import time
 import uuid
 from .execution import Execution
+from .inventory import InsufficientInventory
 from .identity import identifier
 from .policy import PolicyUnavailable
 from .runner import WorkerFailure
@@ -18,7 +19,7 @@ class Worker:
         self.runner = runner
         self.tenants = tuple(dict.fromkeys(tenants))
         if not 1 <= len(self.tenants) <= 32:
-            raise ValueError("Configure between one and32 worker tenants")
+            raise ValueError("Configure between one and 32 worker tenants")
         for tenant in self.tenants:
             identifier(tenant, "worker tenant")
         self.cursor = 0
@@ -45,6 +46,8 @@ class Worker:
             code = "worker_unavailable" if error.code == "cancelled" else error.code
         except PolicyUnavailable:
             code = "policy_unavailable"
+        except InsufficientInventory:
+            code = "insufficient_inventory"
         except (PermissionError, ValueError):
             code = "authorization_changed"
         except Exception as error:

@@ -43,3 +43,17 @@ def test_worker_failure_preserves_business_state_and_schedules_retry():
         control.store.get("acme", "requests", request["id"])["status"] == "retry_wait"
     )
     assert Inventory(control.store).list("acme")[0]["available"] == 10
+
+
+def test_insufficient_inventory_is_a_business_failure_without_a_receipt_or_retry():
+    control = make_control()
+    request = submit(control)
+    control.approve(BOB, request["id"], request["binding"], 1, 101)
+    Inventory(control.store).provision("acme", "SKU-1", 1)
+    worker = Worker(control, FixtureRunner(), ["acme"], clock=lambda: 102)
+    assert worker.once()
+    result = control.store.get("acme", "requests", request["id"])
+    assert result["status"] == "failed" and result["error"] == "insufficient_inventory"
+    assert not worker.once()
+    assert Inventory(control.store).list("acme")[0]["available"] == 1
+    assert control.store.list("acme", "receipts") == []
