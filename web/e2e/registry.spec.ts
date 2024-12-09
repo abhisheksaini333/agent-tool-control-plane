@@ -7,14 +7,11 @@ test("administrator publishes an immutable contract, activates and disables it w
   await page
     .getByRole("button", { name: "Tool registry", exact: true })
     .click();
-  const source = page
-    .locator(".registry-tool")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "text.digest v1.0.0",
-        exact: true,
-      }),
-    });
+  const sourceTitle = page.getByRole("heading", {
+    name: "text.digest v1.0.0",
+    exact: true,
+  });
+  const source = page.locator(".registry-tool").filter({ has: sourceTitle });
   await source.getByRole("button", { name: "New version from this" }).click();
   const name = `text.browser-${Date.now().toString(36)}`;
   await page.getByLabel("Tool name", { exact: true }).fill(name);
@@ -23,11 +20,11 @@ test("administrator publishes an immutable contract, activates and disables it w
     .getByRole("button", { name: "Publish version", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(`Published ${name}`);
-  const created = page
-    .locator(".registry-tool")
-    .filter({
-      has: page.getByRole("heading", { name: `${name} v1.0.0`, exact: true }),
-    });
+  const createdTitle = page.getByRole("heading", {
+    name: `${name} v1.0.0`,
+    exact: true,
+  });
+  const created = page.locator(".registry-tool").filter({ has: createdTitle });
   await created
     .getByRole("button", { name: "Activate version", exact: true })
     .click();
