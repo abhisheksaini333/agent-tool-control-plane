@@ -5,6 +5,8 @@ from .identity import identifier
 
 
 def service_url(value, local_demo, origin=False):
+    if not isinstance(value, str) or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("Invalid service URL")
     parsed = urlparse(value)
     local = parsed.hostname in {"localhost", "127.0.0.1", "::1"}
     if parsed.scheme != "https" and not (
@@ -12,7 +14,8 @@ def service_url(value, local_demo, origin=False):
     ):
         raise ValueError("Service URLs require HTTPS outside the loopback demo")
     if (
-        not parsed.netloc
+        not parsed.hostname
+        or parsed.port == 0
         or parsed.username
         or parsed.password
         or parsed.query
