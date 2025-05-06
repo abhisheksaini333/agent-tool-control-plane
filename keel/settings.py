@@ -69,10 +69,12 @@ class Settings:
             "postgresql://keel:keel-local-only@127.0.0.1:56484/keel",
         )
         redis = env.get("KEEL_REDIS_URL", "redis://127.0.0.1:6394/0")
-        if urlparse(database).scheme not in {"postgres", "postgresql"} or urlparse(
-            redis
-        ).scheme not in {"redis", "rediss"}:
-            raise ValueError("PostgreSQL and Redis URLs are required")
+        for value, schemes in [(database, {"postgres", "postgresql"}), (redis, {"redis", "rediss"})]:
+            if not isinstance(value, str) or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+                raise ValueError("Invalid datastore URL")
+            parsed = urlparse(value)
+            if parsed.scheme not in schemes or not parsed.hostname or parsed.port == 0 or parsed.fragment:
+                raise ValueError("PostgreSQL and Redis URLs require valid hosts and ports")
         return cls(
             local,
             database,
