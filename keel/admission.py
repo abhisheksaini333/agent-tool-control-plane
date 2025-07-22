@@ -40,7 +40,12 @@ class RedisAdmission:
             + digest({"tenant": actor.tenant, "caller": actor.subject})
         )
         try:
-            count, remaining = self.client.eval(SCRIPT, 1, key, self.window)
+            reply = self.client.eval(SCRIPT, 1, key, self.window)
+            if not isinstance(reply, (list, tuple)) or len(reply) != 2:
+                raise AdmissionUnavailable("Invalid admission service response")
+            count, remaining = reply
+            if type(count) is not int or count < 1 or type(remaining) is not int or not 0 <= remaining <= self.window:
+                raise AdmissionUnavailable("Invalid admission service response")
         except RedisError as error:
             raise AdmissionUnavailable("Admission service unavailable") from error
         if count > self.limit:
