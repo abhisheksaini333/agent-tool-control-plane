@@ -26,9 +26,11 @@ def _unique(pairs):
 
 
 def verify_reply(request, raw, secret=None):
-    if len(raw.encode()) > 65536:
-        raise ValueError("Worker output exceeds 64 KiB")
+    if not isinstance(raw, str):
+        raise ValueError("Worker output must be UTF-8 text")
     try:
+        if len(raw.encode("utf-8")) > 65536:
+            raise ValueError("Worker output exceeds 64 KiB")
         reply = json.loads(raw, object_pairs_hook=_unique)
         payload = payload_for(request)
         if not isinstance(reply, dict) or set(reply) != {
