@@ -83,13 +83,18 @@ export class AuthSession {
     }
     if (
       !pending ||
+      typeof pending !== "object" ||
+      ![pending.state, pending.nonce, pending.verifier].every(
+        (value) =>
+          typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value)
+      ) ||
       url.origin !== target.origin ||
       url.pathname !== target.pathname ||
       url.searchParams.getAll("code").length !== 1 ||
       url.searchParams.getAll("state").length !== 1 ||
       !url.searchParams.get("code") ||
       url.searchParams.get("state") !== pending.state ||
-      typeof pending.created !== "number" ||
+      !Number.isFinite(pending.created) ||
       Date.now() - pending.created < 0 ||
       Date.now() - pending.created > 300000
     ) {
