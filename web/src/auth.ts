@@ -130,15 +130,22 @@ export class AuthSession {
       }
     );
     if (!response.ok) throw new Error("Your session expired. Sign in again.");
-    const tokens = await response.json();
+    const tokens = await response.json().catch(() => null);
     if (
+      !tokens ||
+      typeof tokens !== "object" ||
+      Array.isArray(tokens) ||
       typeof tokens.access_token !== "string" ||
+      !tokens.access_token.trim() ||
       typeof tokens.id_token !== "string" ||
+      !tokens.id_token.trim() ||
       typeof tokens.expires_in !== "number" ||
+      !Number.isFinite(tokens.expires_in) ||
       tokens.expires_in <= 0 ||
       tokens.expires_in > 86400 ||
       (tokens.refresh_token !== undefined &&
-        typeof tokens.refresh_token !== "string")
+        (typeof tokens.refresh_token !== "string" ||
+          !tokens.refresh_token.trim()))
     ) {
       throw new Error("Identity service returned an invalid session.");
     }
