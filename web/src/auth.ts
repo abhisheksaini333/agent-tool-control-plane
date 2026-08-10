@@ -156,9 +156,24 @@ export class AuthSession {
     if (token.length > 16384 || token.split(".").length !== 3)
       throw new Error("Invalid identity token.");
     const [head, payload, signature] = token.split(".");
-    const header = JSON.parse(new TextDecoder().decode(decode(head)));
-    const claims = JSON.parse(new TextDecoder().decode(decode(payload)));
+    let header, claims;
+    try {
+      header = JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(decode(head))
+      );
+      claims = JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(decode(payload))
+      );
+    } catch {
+      throw new Error("Invalid identity token.");
+    }
     if (
+      !header ||
+      typeof header !== "object" ||
+      Array.isArray(header) ||
+      !claims ||
+      typeof claims !== "object" ||
+      Array.isArray(claims) ||
       header.alg !== "RS256" ||
       typeof header.kid !== "string" ||
       header.kid.length > 128 ||
@@ -168,6 +183,7 @@ export class AuthSession {
       ![claims.aud].flat().includes(this.config.clientId) ||
       (claims.azp !== undefined && claims.azp !== this.config.clientId) ||
       typeof claims.exp !== "number" ||
+      !Number.isFinite(claims.exp) ||
       claims.exp <= Date.now() / 1000 ||
       (nonce !== undefined && claims.nonce !== nonce)
     )
@@ -177,11 +193,15 @@ export class AuthSession {
       { credentials: "omit" }
     );
     if (!response.ok) throw new Error("Identity verification is unavailable.");
-    const { keys } = await response.json();
+    const document = await response.json().catch(() => null);
+    const keys = document?.keys;
     if (!Array.isArray(keys) || keys.length > 32)
       throw new Error("Invalid signing keys.");
     const matches = keys.filter(
       (k) =>
+        k &&
+        typeof k === "object" &&
+        !Array.isArray(k) &&
         k.kid === header.kid &&
         k.kty === "RSA" &&
         k.use === "sig" &&
