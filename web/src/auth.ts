@@ -252,7 +252,10 @@ export class AuthSession {
           throw new Error("Identity changed during refresh. Sign in again.");
         if (generation !== this.generation)
           throw new Error("Session was signed out.");
-        this.save(tokens);
+        this.save({
+          ...tokens,
+          refresh_token: tokens.refresh_token ?? refreshToken,
+        });
         return tokens.access_token;
       })()
         .catch((error) => {
