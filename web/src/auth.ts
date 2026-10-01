@@ -156,7 +156,7 @@ export class AuthSession {
     if (token.length > 16384 || token.split(".").length !== 3)
       throw new Error("Invalid identity token.");
     const [head, payload, signature] = token.split(".");
-    let header, claims;
+    let header: Record<string, unknown>, claims: Record<string, unknown>;
     try {
       header = JSON.parse(
         new TextDecoder("utf-8", { fatal: true }).decode(decode(head))
